@@ -22,9 +22,10 @@ export default function LoginPage() {
         setErrorMsg(error.message);
         setLoading(false);
       } else if (data?.user) {
-        // توجيه مباشر صريح عبر المتصفح لتجاوز أي تعليق
-        window.location.href = '/dashboard';
-      }
+  // اختبار التوجيه المؤقت
+  window.location.href = 'https://google.com';
+}
+
     } catch (err) {
       setErrorMsg('حدث خطأ أثناء الاتصال، يرجى المحاولة لاحقاً');
       setLoading(false);
