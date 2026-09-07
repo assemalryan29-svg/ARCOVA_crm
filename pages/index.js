@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
 export default function LoginPage() {
@@ -7,7 +6,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -24,8 +22,8 @@ export default function LoginPage() {
         setErrorMsg(error.message);
         setLoading(false);
       } else if (data?.user) {
-        // توجيه مباشر ومباشرة بدون رسائل alert منبثقة
-        await router.push('/dashboard');
+        // توجيه مباشر صريح عبر المتصفح لتجاوز أي تعليق
+        window.location.href = '/dashboard';
       }
     } catch (err) {
       setErrorMsg('حدث خطأ أثناء الاتصال، يرجى المحاولة لاحقاً');
