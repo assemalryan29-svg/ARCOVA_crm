@@ -7,7 +7,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const router = Router();
+  const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
