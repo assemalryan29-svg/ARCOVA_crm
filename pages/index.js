@@ -22,12 +22,10 @@ export default function LoginPage() {
         setErrorMsg(error.message);
         setLoading(false);
       } else if (data?.user) {
-  // اختبار التوجيه المؤقت
-  window.location.href = 'https://google.com';
-}
-
+        window.location.href = '/dashboard';
+      }
     } catch (err) {
-      setErrorMsg('حدث خطأ أثناء الاتصال، يرجى المحاولة لاحقاً');
+      setErrorMsg('خطأ: ' + err.message);
       setLoading(false);
     }
   };
