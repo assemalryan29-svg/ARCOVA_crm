@@ -14,21 +14,27 @@ export default function LoginPage() {
     setLoading(true);
     setErrorMsg('');
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
 
-    if (error) {
-      setErrorMsg(error.message);
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+      } else if (data?.user) {
+        // توجيه مباشر ومباشرة بدون رسائل alert منبثقة
+        await router.push('/dashboard');
+      }
+    } catch (err) {
+      setErrorMsg('حدث خطأ أثناء الاتصال، يرجى المحاولة لاحقاً');
       setLoading(false);
-    } else {
-      router.push('/dashboard');
     }
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#fff', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#fff', fontFamily: 'sans-serif', direction: 'rtl' }}>
       <form onSubmit={handleLogin} style={{ width: '100%', maxWidth: '400px', padding: '2rem', backgroundColor: '#1e293b', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: '#38bdf8' }}>ARCOVA CRM</h2>
         
