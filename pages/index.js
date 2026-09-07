@@ -1,99 +1,71 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabaseClient';
 
-export default function Home() {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const router = Router();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      alert(`تم تسجيل الدخول بنجاح للحساب: ${email}`);
+    setErrorMsg('');
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
       setLoading(false);
-    }, 1000);
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      backgroundColor: '#0f172a',
-      color: '#ffffff',
-      fontFamily: 'sans-serif',
-      padding: '20px'
-    }}>
-      <form onSubmit={handleLogin} style={{
-        backgroundColor: '#1e293b',
-        padding: '30px',
-        borderRadius: '12px',
-        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
-        width: '100%',
-        maxWidth: '360px'
-      }}>
-        <h2 style={{ color: '#38bdf8', textAlign: 'center', marginBottom: '8px' }}>ARCOVA CRM</h2>
-        <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '24px', fontSize: '14px' }}>تسجيل الدخول للنظام</p>
+    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#fff', fontFamily: 'sans-serif' }}>
+      <form onSubmit={handleLogin} style={{ width: '100%', maxWidth: '400px', padding: '2rem', backgroundColor: '#1e293b', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: '#38bdf8' }}>ARCOVA CRM</h2>
         
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#cbd5e1' }}>البريد الإلكتروني</label>
+        {errorMsg && (
+          <div style={{ padding: '0.75rem', marginBottom: '1rem', backgroundColor: '#ef444422', border: '1px solid #ef4444', color: '#f87171', borderRadius: '4px', fontSize: '0.875rem' }}>
+            {errorMsg}
+          </div>
+        )}
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>البريد الإلكتروني</label>
           <input 
             type="email" 
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@company.com"
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: '6px',
-              border: '1px solid #334155',
-              backgroundColor: '#0f172a',
-              color: '#fff',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
+            required 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', outline: 'none' }} 
           />
         </div>
 
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#cbd5e1' }}>كلمة المرور</label>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>كلمة المرور</label>
           <input 
             type="password" 
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: '6px',
-              border: '1px solid #334155',
-              backgroundColor: '#0f172a',
-              color: '#fff',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
+            required 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', outline: 'none' }} 
           />
         </div>
 
         <button 
           type="submit" 
           disabled={loading}
-          style={{
-            backgroundColor: '#0284c7',
-            color: '#ffffff',
-            border: 'none',
-            padding: '12px',
-            borderRadius: '6px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            width: '100%',
-            fontWeight: 'bold'
-          }}
+          style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: 'none', backgroundColor: '#0284c7', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
         >
-          {loading ? 'جاري التحقق...' : 'دخول'}
+          {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
         </button>
       </form>
     </div>
