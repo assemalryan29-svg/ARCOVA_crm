@@ -6,11 +6,17 @@ export default function Dashboard() {
   const [leads, setLeads] = useState([]);
   const [units, setUnits] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [activeTab, setActiveTab] = useState('kanban');
+  const [activeTab, setActiveTab] = useState('analytics');
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
+
+  // Search & Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTemperature, setFilterTemperature] = useState('ALL');
+  const [filterSource, setFilterSource] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('ALL');
 
   const initialFormState = {
     name: '', phone: '', whatsapp: '', email: '', governorate: '',
@@ -92,6 +98,37 @@ export default function Dashboard() {
     window.location.href = '/';
   };
 
+  const exportToCSV = (data, filename) => {
+    if (!data || !data.length) { alert('لا توجد بيانات للتصدير'); return; }
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(obj => Object.values(obj).map(v => `"${v || ''}"`).join(','));
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers, ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Filter Logic
+  const filteredLeads = leads.filter(lead => {
+    const matchesQuery = (lead.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         (lead.phone || '').includes(searchQuery);
+    const matchesTemp = filterTemperature === 'ALL' || lead.temperature === filterTemperature;
+    const matchesSource = filterSource === 'ALL' || lead.lead_source === filterSource;
+    const matchesStatus = filterStatus === 'ALL' || lead.status === filterStatus;
+
+    return matchesQuery && matchesTemp && matchesSource && matchesStatus;
+  });
+
+  // Analytics Helpers
+  const hotLeadsCount = leads.filter(l => l.temperature === 'Hot').length;
+  const wonLeadsCount = leads.filter(l => l.status === 'Closed Won').length;
+  const availableUnitsCount = units.filter(u => u.status === 'Available').length;
+  const pendingTasksCount = tasks.filter(t => t.status === 'Pending').length;
+
   if (loading) return <div style={{ color: '#fff', textAlign: 'center', padding: '5rem', backgroundColor: '#0f172a', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
@@ -101,7 +138,7 @@ export default function Dashboard() {
       <header style={{ backgroundColor: '#1e293b', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h2 style={{ margin: 0, color: '#38bdf8' }}>ARCOVA CRM</h2>
-          <span style={{ backgroundColor: '#0369a1', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem' }}>v2.0 Pro</span>
+          <span style={{ backgroundColor: '#0369a1', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem' }}>v3.1 Filter Enabled</span>
         </div>
         <button onClick={handleLogout} style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>تسجيل الخروج</button>
       </header>
@@ -109,14 +146,21 @@ export default function Dashboard() {
       {/* Navigation Bar */}
       <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={() => setActiveTab('analytics')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'analytics' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📈 التقارير والإحصائيات</button>
           <button onClick={() => setActiveTab('kanban')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'kanban' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📊 لوحة المراحل (Kanban)</button>
           <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 قائمة العملاء ({leads.length})</button>
-          <button onClick={() => setActiveTab('tasks')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'tasks' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>✅ المهام اليومية ({tasks.filter(t => t.status === 'Pending').length})</button>
+          <button onClick={() => setActiveTab('tasks')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'tasks' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>✅ المهام اليومية ({pendingTasksCount})</button>
           <button onClick={() => setActiveTab('inventory')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'inventory' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🏢 المخزون العقاري ({units.length})</button>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {activeTab === 'list' && (
+            <button onClick={() => exportToCSV(filteredLeads, 'filtered_leads')} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>📥 تصدير نتائج البحث</button>
+          )}
           {activeTab === 'inventory' && (
-            <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>+ إضافة وحدة جديدة</button>
+            <>
+              <button onClick={() => exportToCSV(units, 'units_export')} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>📥 تصدير الوحدات</button>
+              <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>+ إضافة وحدة جديدة</button>
+            </>
           )}
           {activeTab === 'tasks' && (
             <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>+ إضافة مهمة جديدة</button>
@@ -127,6 +171,34 @@ export default function Dashboard() {
 
       {/* Content */}
       <main style={{ padding: '1.5rem', overflowX: 'auto' }}>
+
+        {/* 0. ANALYTICS VIEW */}
+        {activeTab === 'analytics' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div style={{ backgroundColor: '#1e293b', padding: '1.2rem', borderRadius: '8px', borderRight: '4px solid #0284c7' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>إجمالي العملاء</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '0.4rem' }}>{leads.length}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: '1.2rem', borderRadius: '8px', borderRight: '4px solid #ef4444' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>عملاء شديدو الاهتمام (Hot)</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#f87171', marginTop: '0.4rem' }}>{hotLeadsCount}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: '1.2rem', borderRadius: '8px', borderRight: '4px solid #10b981' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>صفقات ناجحة (Closed Won)</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#34d399', marginTop: '0.4rem' }}>{wonLeadsCount}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: '1.2rem', borderRadius: '8px', borderRight: '4px solid #8b5cf6' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>الوحدات المتاحة</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#c084fc', marginTop: '0.4rem' }}>{availableUnitsCount} / {units.length}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: '1.2rem', borderRadius: '8px', borderRight: '4px solid #f59e0b' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>المهام المتبقية</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#fbbf24', marginTop: '0.4rem' }}>{pendingTasksCount}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 1. KANBAN BOARD */}
         {activeTab === 'kanban' && (
@@ -160,39 +232,71 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 2. LEADS LIST */}
+        {/* 2. LEADS LIST WITH FILTERS */}
         {activeTab === 'list' && (
-          <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#0f172a', color: '#94a3b8' }}>
-                  <th style={{ padding: '1rem' }}>الاسم</th>
-                  <th style={{ padding: '1rem' }}>الهاتف</th>
-                  <th style={{ padding: '1rem' }}>الميزانية</th>
-                  <th style={{ padding: '1rem' }}>المصدر</th>
-                  <th style={{ padding: '1rem' }}>الحالة</th>
-                  <th style={{ padding: '1rem' }}>الدرجة</th>
-                  <th style={{ padding: '1rem' }}>الإجراء</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map((lead) => (
-                  <tr key={lead.id} style={{ borderBottom: '1px solid #334155' }}>
-                    <td style={{ padding: '1rem', fontWeight: 'bold' }}>{lead.name}</td>
-                    <td style={{ padding: '1rem' }}>{lead.phone}</td>
-                    <td style={{ padding: '1rem', color: '#34d399' }}>{lead.budget ? `${lead.budget} ج.م` : '-'}</td>
-                    <td style={{ padding: '1rem' }}>{lead.lead_source}</td>
-                    <td style={{ padding: '1rem' }}>{lead.status}</td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{ backgroundColor: lead.temperature === 'Hot' ? '#ef4444' : lead.temperature === 'Warm' ? '#f59e0b' : '#3b82f6', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem' }}>{lead.temperature}</span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <button onClick={() => setSelectedLead(lead)} style={{ padding: '0.3rem 0.8rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>عرض 360°</button>
-                    </td>
+          <div>
+            {/* Search and Filters Bar */}
+            <div style={{ backgroundColor: '#1e293b', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                placeholder="🔍 بحث بالاسم أو رقم الهاتف..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ flex: 1, minWidth: '200px', padding: '0.6rem', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }}
+              />
+              <select value={filterTemperature} onChange={(e) => setFilterTemperature(e.target.value)} style={{ padding: '0.6rem', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }}>
+                <option value="ALL">كل درجات الاهتمام</option>
+                <option value="Hot">🔥 Hot</option>
+                <option value="Warm">☀️ Warm</option>
+                <option value="Cold">❄️ Cold</option>
+              </select>
+              <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} style={{ padding: '0.6rem', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }}>
+                <option value="ALL">كل المصادر</option>
+                <option value="Facebook">Facebook</option>
+                <option value="Instagram">Instagram</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Google">Google</option>
+                <option value="Cold Call">Cold Call</option>
+              </select>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ padding: '0.6rem', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }}>
+                <option value="ALL">كل المراحل</option>
+                {leadStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            {/* Table */}
+            <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#0f172a', color: '#94a3b8' }}>
+                    <th style={{ padding: '1rem' }}>الاسم</th>
+                    <th style={{ padding: '1rem' }}>الهاتف</th>
+                    <th style={{ padding: '1rem' }}>الميزانية</th>
+                    <th style={{ padding: '1rem' }}>المصدر</th>
+                    <th style={{ padding: '1rem' }}>الحالة</th>
+                    <th style={{ padding: '1rem' }}>الدرجة</th>
+                    <th style={{ padding: '1rem' }}>الإجراء</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredLeads.map((lead) => (
+                    <tr key={lead.id} style={{ borderBottom: '1px solid #334155' }}>
+                      <td style={{ padding: '1rem', fontWeight: 'bold' }}>{lead.name}</td>
+                      <td style={{ padding: '1rem' }}>{lead.phone}</td>
+                      <td style={{ padding: '1rem', color: '#34d399' }}>{lead.budget ? `${lead.budget} ج.م` : '-'}</td>
+                      <td style={{ padding: '1rem' }}>{lead.lead_source}</td>
+                      <td style={{ padding: '1rem' }}>{lead.status}</td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ backgroundColor: lead.temperature === 'Hot' ? '#ef4444' : lead.temperature === 'Warm' ? '#f59e0b' : '#3b82f6', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem' }}>{lead.temperature}</span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <button onClick={() => setSelectedLead(lead)} style={{ padding: '0.3rem 0.8rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>عرض 360°</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -200,32 +304,24 @@ export default function Dashboard() {
         {activeTab === 'tasks' && (
           <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', padding: '1.5rem' }}>
             <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>✅ قائمة المهام والمتابعات اليومية</h3>
-            {tasks.length === 0 ? (
-              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>لا توجد مهام مسجلة حتى الآن. اضغط "+ إضافة مهمة جديدة".</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {tasks.map((task) => (
-                  <div key={task.id} style={{ backgroundColor: '#0f172a', padding: '1rem 1.5rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRight: `5px solid ${task.status === 'Completed' ? '#10b981' : '#f59e0b'}` }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                        <span style={{ fontWeight: 'bold', fontSize: '1.1rem', textDecoration: task.status === 'Completed' ? 'line-through' : 'none', color: task.status === 'Completed' ? '#64748b' : '#fff' }}>{task.title}</span>
-                        <span style={{ backgroundColor: '#334155', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem' }}>{task.task_type}</span>
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.4rem' }}>
-                        العميل: {task.leads ? task.leads.name : 'غير محدد'} ({task.leads ? task.leads.phone : '-'})
-                      </div>
-                      {task.notes && <div style={{ fontSize: '0.85rem', color: '#38bdf8', marginTop: '0.3rem' }}>💡 {task.notes}</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {tasks.map((task) => (
+                <div key={task.id} style={{ backgroundColor: '#0f172a', padding: '1rem 1.5rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRight: `5px solid ${task.status === 'Completed' ? '#10b981' : '#f59e0b'}` }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem', textDecoration: task.status === 'Completed' ? 'line-through' : 'none', color: task.status === 'Completed' ? '#64748b' : '#fff' }}>{task.title}</span>
+                      <span style={{ backgroundColor: '#334155', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem' }}>{task.task_type}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{task.due_date ? new Date(task.due_date).toLocaleDateString('ar-EG') : ''}</span>
-                      <button onClick={() => toggleTaskStatus(task.id, task.status)} style={{ padding: '0.5rem 1rem', backgroundColor: task.status === 'Completed' ? '#64748b' : '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-                        {task.status === 'Completed' ? 'إلغاء الإنجاز' : 'تم الإنجاز ✓'}
-                      </button>
+                    <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.4rem' }}>
+                      العميل: {task.leads ? task.leads.name : 'غير محدد'} ({task.leads ? task.leads.phone : '-'})
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  <button onClick={() => toggleTaskStatus(task.id, task.status)} style={{ padding: '0.5rem 1rem', backgroundColor: task.status === 'Completed' ? '#64748b' : '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                    {task.status === 'Completed' ? 'إلغاء الإنجاز' : 'تم الإنجاز ✓'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -233,148 +329,50 @@ export default function Dashboard() {
         {activeTab === 'inventory' && (
           <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', padding: '1.5rem' }}>
             <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>🏢 المخزون العقاري والوحدات المتاحة</h3>
-            {units.length === 0 ? (
-              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>لا توجد وحدات مسجلة حتى الآن. اضغط "+ إضافة وحدة جديدة".</p>
-            ) : (
-              <div style={{ backgroundColor: '#0f172a', borderRadius: '8px', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8' }}>
-                      <th style={{ padding: '1rem' }}>كود الوحدة</th>
-                      <th style={{ padding: '1rem' }}>المشروع</th>
-                      <th style={{ padding: '1rem' }}>النوع</th>
-                      <th style={{ padding: '1rem' }}>المنطقة</th>
-                      <th style={{ padding: '1rem' }}>المساحة</th>
-                      <th style={{ padding: '1rem' }}>السعر</th>
-                      <th style={{ padding: '1rem' }}>الحالة</th>
-                      <th style={{ padding: '1rem' }}>تغيير الحالة</th>
+            <div style={{ backgroundColor: '#0f172a', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8' }}>
+                    <th style={{ padding: '1rem' }}>كود الوحدة</th>
+                    <th style={{ padding: '1rem' }}>المشروع</th>
+                    <th style={{ padding: '1rem' }}>السعر</th>
+                    <th style={{ padding: '1rem' }}>الحالة</th>
+                    <th style={{ padding: '1rem' }}>الإجراء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {units.map((unit) => (
+                    <tr key={unit.id} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: '1rem', fontWeight: 'bold', color: '#38bdf8' }}>{unit.unit_code}</td>
+                      <td style={{ padding: '1rem' }}>{unit.project_name}</td>
+                      <td style={{ padding: '1rem', color: '#34d399' }}>{unit.price ? `${unit.price} ج.م` : '-'}</td>
+                      <td style={{ padding: '1rem' }}>{unit.status}</td>
+                      <td style={{ padding: '1rem' }}>
+                        <select value={unit.status} onChange={(e) => updateUnitStatus(unit.id, e.target.value)} style={{ backgroundColor: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '0.3rem' }}>
+                          <option value="Available">متاحة</option>
+                          <option value="Reserved">محجوزة</option>
+                          <option value="Sold">مباعة</option>
+                        </select>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {units.map((unit) => (
-                      <tr key={unit.id} style={{ borderBottom: '1px solid #1e293b' }}>
-                        <td style={{ padding: '1rem', fontWeight: 'bold', color: '#38bdf8' }}>{unit.unit_code}</td>
-                        <td style={{ padding: '1rem' }}>{unit.project_name}</td>
-                        <td style={{ padding: '1rem' }}>{unit.property_type}</td>
-                        <td style={{ padding: '1rem' }}>{unit.region || '-'}</td>
-                        <td style={{ padding: '1rem' }}>{unit.area ? `${unit.area} م²` : '-'}</td>
-                        <td style={{ padding: '1rem', color: '#34d399', fontWeight: 'bold' }}>{unit.price ? `${unit.price} ج.م` : '-'}</td>
-                        <td style={{ padding: '1rem' }}>
-                          <span style={{ backgroundColor: unit.status === 'Available' ? '#10b981' : unit.status === 'Reserved' ? '#f59e0b' : '#ef4444', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem' }}>
-                            {unit.status === 'Available' ? 'متاحة' : unit.status === 'Reserved' ? 'محجوزة' : 'مباعة'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '1rem' }}>
-                          <select value={unit.status} onChange={(e) => updateUnitStatus(unit.id, e.target.value)} style={{ backgroundColor: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '0.3rem' }}>
-                            <option value="Available">متاحة</option>
-                            <option value="Reserved">محجوزة</option>
-                            <option value="Sold">مباعة</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
       </main>
 
-      {/* Add Unit Modal */}
-      {showUnitModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '600px' }}>
-            <h3>إضافة وحدة عقارية جديدة</h3>
-            <form onSubmit={handleAddUnit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <input placeholder="كود الوحدة (مثال: A-102)" required value={unitData.unit_code} onChange={(e) => setUnitData({...unitData, unit_code: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <input placeholder="اسم المشروع" required value={unitData.project_name} onChange={(e) => setUnitData({...unitData, project_name: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <input placeholder="المنطقة / الموقع" value={unitData.region} onChange={(e) => setUnitData({...unitData, region: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <input placeholder="المساحة (م²)" value={unitData.area} onChange={(e) => setUnitData({...unitData, area: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <input placeholder="السعر المطلوب" value={unitData.price} onChange={(e) => setUnitData({...unitData, price: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <select value={unitData.property_type} onChange={(e) => setUnitData({...unitData, property_type: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
-                <option value="شقة">شقة</option>
-                <option value="فيلا">فيلا</option>
-                <option value="تاون هاوس">تاون هاوس</option>
-                <option value="مكتب تجاري">مكتب تجاري</option>
-                <option value="محل تجاري">محل تجاري</option>
-              </select>
-              <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setShowUnitModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
-                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#8b5cf6', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ الوحدة</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Task Modal */}
-      {showTaskModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '500px' }}>
-            <h3>إضافة مهمة جديدة</h3>
-            <form onSubmit={handleAddTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input placeholder="عنوان المهمة (مثال: متابعة تفاصيل المعاينة)" required value={taskData.title} onChange={(e) => setTaskData({...taskData, title: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <select value={taskData.lead_id} onChange={(e) => setTaskData({...taskData, lead_id: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
-                <option value="">اختر العميل المرتبط بالمهام</option>
-                {leads.map(l => <option key={l.id} value={l.id}>{l.name} - {l.phone}</option>)}
-              </select>
-              <select value={taskData.task_type} onChange={(e) => setTaskData({...taskData, task_type: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
-                <option value="Call">📞 مكالمة هاتفية</option>
-                <option value="Meeting">🤝 اجتماع</option>
-                <option value="Viewing">🏘️ معاينة وحدة</option>
-                <option value="Follow-up">💬 متابعة واتساب</option>
-              </select>
-              <input type="datetime-local" value={taskData.due_date} onChange={(e) => setTaskData({...taskData, due_date: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <textarea placeholder="ملاحظات حول المهمة..." value={taskData.notes} onChange={(e) => setTaskData({...taskData, notes: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px', minHeight: '80px' }} />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setShowTaskModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
-                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ المهمة</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Customer 360 Modal */}
-      {selectedLead && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #334155', paddingBottom: '0.5rem' }}>
-              <h2>بطاقة العميل الكاملة (Customer 360)</h2>
-              <button onClick={() => setSelectedLead(null)} style={{ backgroundColor: 'transparent', color: '#fff', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: '#0f172a', padding: '1rem', borderRadius: '8px' }}>
-              <div><strong>الاسم:</strong> {selectedLead.name}</div>
-              <div><strong>الهاتف:</strong> {selectedLead.phone}</div>
-              <div><strong>الميزانية:</strong> {selectedLead.budget ? `${selectedLead.budget} ج.م` : 'غير محدد'}</div>
-              <div><strong>المقدم المتاح:</strong> {selectedLead.down_payment ? `${selectedLead.down_payment} ج.م` : 'غير محدد'}</div>
-              <div><strong>نوع العميل:</strong> {selectedLead.client_type}</div>
-              <div><strong>درجة الاهتمام:</strong> {selectedLead.temperature}</div>
-              <div><strong>مصدر العميل:</strong> {selectedLead.lead_source}</div>
-              <div><strong>المرحلة الحالية:</strong> {selectedLead.status}</div>
-            </div>
-
-            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-              <a href={`https://wa.me/${selectedLead.phone}`} target="_blank" rel="noreferrer" style={{ padding: '0.6rem 1.2rem', backgroundColor: '#22c55e', color: '#fff', textDecoration: 'none', borderRadius: '6px', textAlign: 'center', flex: 1 }}>💬 مراسلة واتساب</a>
-              <a href={`tel:${selectedLead.phone}`} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#3b82f6', color: '#fff', textDecoration: 'none', borderRadius: '6px', textAlign: 'center', flex: 1 }}>📞 اتصال هاتفي</a>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Add Lead Modal */}
       {showLeadModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '600px' }}>
             <h3>إضافة عميل جديد</h3>
             <form onSubmit={handleAddLead} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <input placeholder="اسم العميل" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
               <input placeholder="رقم الهاتف" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <input placeholder="الميزانية (Budget)" value={formData.budget} onChange={(e) => setFormData({...formData, budget: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              <input placeholder="المقدم المتاح" value={formData.down_payment} onChange={(e) => setFormData({...formData, down_payment: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="الميزانية" value={formData.budget} onChange={(e) => setFormData({...formData, budget: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
               <select value={formData.lead_source} onChange={(e) => setFormData({...formData, lead_source: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
                 <option value="Facebook">Facebook</option>
                 <option value="Instagram">Instagram</option>
@@ -382,16 +380,24 @@ export default function Dashboard() {
                 <option value="Google">Google</option>
                 <option value="Cold Call">Cold Call</option>
               </select>
-              <select value={formData.temperature} onChange={(e) => setFormData({...formData, temperature: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
-                <option value="Cold">Cold</option>
-                <option value="Warm">Warm</option>
-                <option value="Hot">Hot</option>
-              </select>
               <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setShowLeadModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
-                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ العميل</button>
+                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Lead Modal */}
+      {selectedLead && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '600px' }}>
+            <h2>{selectedLead.name}</h2>
+            <p><strong>الهاتف:</strong> {selectedLead.phone}</p>
+            <p><strong>الميزانية:</strong> {selectedLead.budget} ج.م</p>
+            <p><strong>المصدر:</strong> {selectedLead.lead_source}</p>
+            <button onClick={() => setSelectedLead(null)} style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إغلاق</button>
           </div>
         </div>
       )}
