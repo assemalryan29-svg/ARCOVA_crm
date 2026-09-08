@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('kanban');
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showUnitModal, setShowUnitModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
 
   const initialFormState = {
@@ -20,9 +21,8 @@ export default function Dashboard() {
   };
 
   const [formData, setFormData] = useState(initialFormState);
-  const [taskData, setTaskData] = useState({
-    lead_id: '', title: '', task_type: 'Call', due_date: '', notes: ''
-  });
+  const [taskData, setTaskData] = useState({ lead_id: '', title: '', task_type: 'Call', due_date: '', notes: '' });
+  const [unitData, setUnitData] = useState({ unit_code: '', project_name: '', property_type: 'شقة', region: '', area: '', price: '', bedrooms: '1', status: 'Available', notes: '' });
 
   const leadStatuses = [
     'New Lead', 'Contacted', 'Qualified', 'Interested', 
@@ -41,7 +41,7 @@ export default function Dashboard() {
     const { data: leadsData } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
     if (leadsData) setLeads(leadsData);
 
-    const { data: unitsData } = await supabase.from('units').select('*');
+    const { data: unitsData } = await supabase.from('units').select('*').order('created_at', { ascending: false });
     if (unitsData) setUnits(unitsData);
 
     const { data: tasksData } = await supabase.from('tasks').select('*, leads(name, phone)').order('due_date', { ascending: true });
@@ -53,25 +53,27 @@ export default function Dashboard() {
   const handleAddLead = async (e) => {
     e.preventDefault();
     const { error } = await supabase.from('leads').insert([formData]);
-    if (error) {
-      alert('خطأ في إضافة العميل: ' + error.message);
-    } else {
-      setShowLeadModal(false);
-      setFormData(initialFormState);
-      fetchData();
-    }
+    if (error) { alert('خطأ في إضافة العميل: ' + error.message); }
+    else { setShowLeadModal(false); setFormData(initialFormState); fetchData(); }
   };
 
   const handleAddTask = async (e) => {
     e.preventDefault();
     const { error } = await supabase.from('tasks').insert([taskData]);
-    if (error) {
-      alert('خطأ في إضافة المهمة: ' + error.message);
-    } else {
-      setShowTaskModal(false);
-      setTaskData({ lead_id: '', title: '', task_type: 'Call', due_date: '', notes: '' });
-      fetchData();
-    }
+    if (error) { alert('خطأ في إضافة المهمة: ' + error.message); }
+    else { setShowTaskModal(false); setTaskData({ lead_id: '', title: '', task_type: 'Call', due_date: '', notes: '' }); fetchData(); }
+  };
+
+  const handleAddUnit = async (e) => {
+    e.preventDefault();
+    const { error } = await supabase.from('units').insert([unitData]);
+    if (error) { alert('خطأ في إضافة الوحدة: ' + error.message); }
+    else { setShowUnitModal(false); setUnitData({ unit_code: '', project_name: '', property_type: 'شقة', region: '', area: '', price: '', bedrooms: '1', status: 'Available', notes: '' }); fetchData(); }
+  };
+
+  const updateUnitStatus = async (unitId, newStatus) => {
+    const { error } = await supabase.from('units').update({ status: newStatus }).eq('id', unitId);
+    if (!error) fetchData();
   };
 
   const toggleTaskStatus = async (taskId, currentStatus) => {
@@ -82,9 +84,7 @@ export default function Dashboard() {
 
   const updateLeadStatus = async (leadId, newStatus) => {
     const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
-    if (!error) {
-      setLeads(leads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
-    }
+    if (!error) setLeads(leads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
   };
 
   const handleLogout = async () => {
@@ -115,6 +115,9 @@ export default function Dashboard() {
           <button onClick={() => setActiveTab('inventory')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'inventory' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🏢 المخزون العقاري ({units.length})</button>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {activeTab === 'inventory' && (
+            <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>+ إضافة وحدة جديدة</button>
+          )}
           {activeTab === 'tasks' && (
             <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>+ إضافة مهمة جديدة</button>
           )}
@@ -226,15 +229,85 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 4. INVENTORY */}
+        {/* 4. INVENTORY VIEW */}
         {activeTab === 'inventory' && (
-          <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#1e293b', borderRadius: '8px' }}>
-            <h3>🏢 قسم المخزون والوحدات العقارية</h3>
-            <p style={{ color: '#94a3b8' }}>يمكنك هنا إضافة المشاريع والوحدات وتتبع حالتها (متاحة، محجوزة، مباعة).</p>
+          <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', padding: '1.5rem' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>🏢 المخزون العقاري والوحدات المتاحة</h3>
+            {units.length === 0 ? (
+              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>لا توجد وحدات مسجلة حتى الآن. اضغط "+ إضافة وحدة جديدة".</p>
+            ) : (
+              <div style={{ backgroundColor: '#0f172a', borderRadius: '8px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8' }}>
+                      <th style={{ padding: '1rem' }}>كود الوحدة</th>
+                      <th style={{ padding: '1rem' }}>المشروع</th>
+                      <th style={{ padding: '1rem' }}>النوع</th>
+                      <th style={{ padding: '1rem' }}>المنطقة</th>
+                      <th style={{ padding: '1rem' }}>المساحة</th>
+                      <th style={{ padding: '1rem' }}>السعر</th>
+                      <th style={{ padding: '1rem' }}>الحالة</th>
+                      <th style={{ padding: '1rem' }}>تغيير الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {units.map((unit) => (
+                      <tr key={unit.id} style={{ borderBottom: '1px solid #1e293b' }}>
+                        <td style={{ padding: '1rem', fontWeight: 'bold', color: '#38bdf8' }}>{unit.unit_code}</td>
+                        <td style={{ padding: '1rem' }}>{unit.project_name}</td>
+                        <td style={{ padding: '1rem' }}>{unit.property_type}</td>
+                        <td style={{ padding: '1rem' }}>{unit.region || '-'}</td>
+                        <td style={{ padding: '1rem' }}>{unit.area ? `${unit.area} م²` : '-'}</td>
+                        <td style={{ padding: '1rem', color: '#34d399', fontWeight: 'bold' }}>{unit.price ? `${unit.price} ج.م` : '-'}</td>
+                        <td style={{ padding: '1rem' }}>
+                          <span style={{ backgroundColor: unit.status === 'Available' ? '#10b981' : unit.status === 'Reserved' ? '#f59e0b' : '#ef4444', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem' }}>
+                            {unit.status === 'Available' ? 'متاحة' : unit.status === 'Reserved' ? 'محجوزة' : 'مباعة'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '1rem' }}>
+                          <select value={unit.status} onChange={(e) => updateUnitStatus(unit.id, e.target.value)} style={{ backgroundColor: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '0.3rem' }}>
+                            <option value="Available">متاحة</option>
+                            <option value="Reserved">محجوزة</option>
+                            <option value="Sold">مباعة</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
       </main>
+
+      {/* Add Unit Modal */}
+      {showUnitModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '600px' }}>
+            <h3>إضافة وحدة عقارية جديدة</h3>
+            <form onSubmit={handleAddUnit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <input placeholder="كود الوحدة (مثال: A-102)" required value={unitData.unit_code} onChange={(e) => setUnitData({...unitData, unit_code: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="اسم المشروع" required value={unitData.project_name} onChange={(e) => setUnitData({...unitData, project_name: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="المنطقة / الموقع" value={unitData.region} onChange={(e) => setUnitData({...unitData, region: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="المساحة (م²)" value={unitData.area} onChange={(e) => setUnitData({...unitData, area: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="السعر المطلوب" value={unitData.price} onChange={(e) => setUnitData({...unitData, price: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <select value={unitData.property_type} onChange={(e) => setUnitData({...unitData, property_type: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
+                <option value="شقة">شقة</option>
+                <option value="فيلا">فيلا</option>
+                <option value="تاون هاوس">تاون هاوس</option>
+                <option value="مكتب تجاري">مكتب تجاري</option>
+                <option value="محل تجاري">محل تجاري</option>
+              </select>
+              <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setShowUnitModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
+                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#8b5cf6', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ الوحدة</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add Task Modal */}
       {showTaskModal && (
@@ -243,23 +316,18 @@ export default function Dashboard() {
             <h3>إضافة مهمة جديدة</h3>
             <form onSubmit={handleAddTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <input placeholder="عنوان المهمة (مثال: متابعة تفاصيل المعاينة)" required value={taskData.title} onChange={(e) => setTaskData({...taskData, title: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-              
               <select value={taskData.lead_id} onChange={(e) => setTaskData({...taskData, lead_id: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
                 <option value="">اختر العميل المرتبط بالمهام</option>
                 {leads.map(l => <option key={l.id} value={l.id}>{l.name} - {l.phone}</option>)}
               </select>
-
               <select value={taskData.task_type} onChange={(e) => setTaskData({...taskData, task_type: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
                 <option value="Call">📞 مكالمة هاتفية</option>
                 <option value="Meeting">🤝 اجتماع</option>
                 <option value="Viewing">🏘️ معاينة وحدة</option>
                 <option value="Follow-up">💬 متابعة واتساب</option>
               </select>
-
               <input type="datetime-local" value={taskData.due_date} onChange={(e) => setTaskData({...taskData, due_date: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
-
               <textarea placeholder="ملاحظات حول المهمة..." value={taskData.notes} onChange={(e) => setTaskData({...taskData, notes: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px', minHeight: '80px' }} />
-
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setShowTaskModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
                 <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ المهمة</button>
