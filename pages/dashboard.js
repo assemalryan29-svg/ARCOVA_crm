@@ -138,14 +138,14 @@ export default function Dashboard() {
       <header style={{ backgroundColor: '#1e293b', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h2 style={{ margin: 0, color: '#38bdf8' }}>ARCOVA CRM</h2>
-          <span style={{ backgroundColor: '#0369a1', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem' }}>v3.1 Filter Enabled</span>
+          <span style={{ backgroundColor: '#0369a1', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem' }}>v3.2 Fixed All Modals</span>
         </div>
         <button onClick={handleLogout} style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>تسجيل الخروج</button>
       </header>
 
       {/* Navigation Bar */}
       <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => setActiveTab('analytics')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'analytics' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📈 التقارير والإحصائيات</button>
           <button onClick={() => setActiveTab('kanban')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'kanban' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📊 لوحة المراحل (Kanban)</button>
           <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 قائمة العملاء ({leads.length})</button>
@@ -382,22 +382,92 @@ export default function Dashboard() {
               </select>
               <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setShowLeadModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
-                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ</button>
+                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ العميل</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Selected Lead Modal */}
-      {selectedLead && (
+      {/* Add Unit Modal */}
+      {showUnitModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '600px' }}>
-            <h2>{selectedLead.name}</h2>
-            <p><strong>الهاتف:</strong> {selectedLead.phone}</p>
-            <p><strong>الميزانية:</strong> {selectedLead.budget} ج.م</p>
-            <p><strong>المصدر:</strong> {selectedLead.lead_source}</p>
-            <button onClick={() => setSelectedLead(null)} style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إغلاق</button>
+            <h3>إضافة وحدة عقارية جديدة</h3>
+            <form onSubmit={handleAddUnit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <input placeholder="كود الوحدة (مثال: A-102)" required value={unitData.unit_code} onChange={(e) => setUnitData({...unitData, unit_code: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="اسم المشروع" required value={unitData.project_name} onChange={(e) => setUnitData({...unitData, project_name: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="المنطقة / الموقع" value={unitData.region} onChange={(e) => setUnitData({...unitData, region: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="المساحة (م²)" value={unitData.area} onChange={(e) => setUnitData({...unitData, area: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <input placeholder="السعر المطلوب" value={unitData.price} onChange={(e) => setUnitData({...unitData, price: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <select value={unitData.property_type} onChange={(e) => setUnitData({...unitData, property_type: e.target.value})} style={{ padding: '0.5rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
+                <option value="شقة">شقة</option>
+                <option value="فيلا">فيلا</option>
+                <option value="تاون هاوس">تاون هاوس</option>
+                <option value="مكتب تجاري">مكتب تجاري</option>
+                <option value="محل تجاري">محل تجاري</option>
+              </select>
+              <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setShowUnitModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
+                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#8b5cf6', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ الوحدة</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Task Modal */}
+      {showTaskModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '500px' }}>
+            <h3>إضافة مهمة جديدة</h3>
+            <form onSubmit={handleAddTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input placeholder="عنوان المهمة (مثال: متابعة تفاصيل المعاينة)" required value={taskData.title} onChange={(e) => setTaskData({...taskData, title: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <select value={taskData.lead_id} onChange={(e) => setTaskData({...taskData, lead_id: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
+                <option value="">اختر العميل المرتبط بالمهام</option>
+                {leads.map(l => <option key={l.id} value={l.id}>{l.name} - {l.phone}</option>)}
+              </select>
+              <select value={taskData.task_type} onChange={(e) => setTaskData({...taskData, task_type: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }}>
+                <option value="Call">📞 مكالمة هاتفية</option>
+                <option value="Meeting">🤝 اجتماع</option>
+                <option value="Viewing">🏘️ معاينة وحدة</option>
+                <option value="Follow-up">💬 متابعة واتساب</option>
+              </select>
+              <input type="datetime-local" value={taskData.due_date} onChange={(e) => setTaskData({...taskData, due_date: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px' }} />
+              <textarea placeholder="ملاحظات حول المهمة..." value={taskData.notes} onChange={(e) => setTaskData({...taskData, notes: e.target.value})} style={{ padding: '0.6rem', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', borderRadius: '4px', minHeight: '80px' }} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setShowTaskModal(false)} style={{ padding: '0.5rem 1rem', backgroundColor: '#64748b', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>إلغاء</button>
+                <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>حفظ المهمة</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Lead Modal (Customer 360 Full Profile with Call & WhatsApp) */}
+      {selectedLead && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '10px', width: '90%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #334155', paddingBottom: '0.5rem' }}>
+              <h2>بطاقة العميل الكاملة (Customer 360)</h2>
+              <button onClick={() => setSelectedLead(null)} style={{ backgroundColor: 'transparent', color: '#fff', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: '#0f172a', padding: '1rem', borderRadius: '8px' }}>
+              <div><strong>الاسم:</strong> {selectedLead.name}</div>
+              <div><strong>الهاتف:</strong> {selectedLead.phone}</div>
+              <div><strong>الميزانية:</strong> {selectedLead.budget ? `${selectedLead.budget} ج.م` : 'غير محدد'}</div>
+              <div><strong>المقدم المتاح:</strong> {selectedLead.down_payment ? `${selectedLead.down_payment} ج.م` : 'غير محدد'}</div>
+              <div><strong>نوع العميل:</strong> {selectedLead.client_type || 'End User'}</div>
+              <div><strong>درجة الاهتمام:</strong> {selectedLead.temperature}</div>
+              <div><strong>مصدر العميل:</strong> {selectedLead.lead_source}</div>
+              <div><strong>المرحلة الحالية:</strong> {selectedLead.status}</div>
+            </div>
+
+            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+              <a href={`https://wa.me/${selectedLead.phone}`} target="_blank" rel="noreferrer" style={{ padding: '0.6rem 1.2rem', backgroundColor: '#22c55e', color: '#fff', textDecoration: 'none', borderRadius: '6px', textAlign: 'center', flex: 1, fontWeight: 'bold' }}>💬 مراسلة واتساب</a>
+              <a href={`tel:${selectedLead.phone}`} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#3b82f6', color: '#fff', textDecoration: 'none', borderRadius: '6px', textAlign: 'center', flex: 1, fontWeight: 'bold' }}>📞 اتصال هاتفي</a>
+            </div>
           </div>
         </div>
       )}
@@ -405,3 +475,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
