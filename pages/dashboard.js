@@ -41,13 +41,31 @@ export default function Dashboard() {
     setLoading(false);
   };
 
-  const handleAddLead = async (e) => {
+    const handleAddLead = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.from('leads').insert([formData]);
+    
+    // تنظيف البيانات الرقمية لمنع إرسال نص فارغ "" إلى حقول numeric
+    const cleanedData = {
+      ...formData,
+      budget: formData.budget ? parseFloat(formData.budget) : null,
+      down_payment: formData.down_payment ? parseFloat(formData.down_payment) : null,
+      monthly_installment: formData.monthly_installment ? parseFloat(formData.monthly_installment) : null,
+      required_area: formData.required_area ? parseFloat(formData.required_area) : null,
+      bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : 1,
+    };
+
+    const { error } = await supabase.from('leads').insert([cleanedData]);
     if (error) {
       alert('خطأ في إضافة العميل: ' + error.message);
     } else {
       setShowLeadModal(false);
+      setFormData({
+        name: '', phone: '', whatsapp: '', email: '', governorate: '',
+        client_type: 'End User', budget: '', down_payment: '', monthly_installment: '',
+        required_area: '', bedrooms: 1, required_region: '', property_type: 'شقة',
+        payment_method: 'تقسيط', lead_source: 'Facebook', status: 'New Lead',
+        temperature: 'Cold', notes: ''
+      });
       fetchData();
     }
   };
