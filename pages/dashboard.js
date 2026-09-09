@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+hereimport { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
 export default function Dashboard() {
@@ -13,6 +13,7 @@ export default function Dashboard() {
   
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false); // Modal الاستيراد
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [newNote, setNewNote] = useState('');
@@ -37,7 +38,6 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // [النقطة 4]: نظام مراقبة وتنبيه حي في الخلفية كل دقيقة
   useEffect(() => {
     if (!audioEnabled) return;
 
@@ -47,7 +47,7 @@ export default function Dashboard() {
       if (hasDue) {
         playNotificationSound();
       }
-    }, 60000); // يفحص كل دقيقة
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [audioEnabled, leads]);
@@ -176,6 +176,53 @@ export default function Dashboard() {
     } catch (err) {
       alert('تعذر الاتصال بالخادم.');
     }
+  };
+
+  // وظيفة استيراد ملف الـ CSV
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split('\n');
+        let importedCount = 0;
+
+        // تخطي السطر الأول (العناوين)
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          // تقسيم الأعمدة (بافتراض مفصولة بفاصلة ومحاطة بعلامات تنصيص)
+          const cols = line.split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
+          const name = cols[0];
+          const phone = cols[1];
+          const email = cols[2] || '';
+          const lead_source = cols[3] || 'Imported';
+
+          if (name && phone) {
+            await supabase.from('leads').insert([{
+              name,
+              phone,
+              email,
+              lead_source,
+              status: 'New Lead',
+              assigned_to: userRole === 'admin' ? null : currentUser.id
+            }]);
+            importedCount++;
+          }
+        }
+
+        alert(`تم استيراد ${importedCount} عميل بنجاح!`);
+        setShowImportModal(false);
+        fetchData();
+      } catch (err) {
+        alert('حدث خطأ أثناء قراءة الملف، تأكد من أنه بصيغة CSV صحيحة.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
@@ -374,7 +421,11 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
               <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '300px', padding: '0.5rem', backgroundColor: '#131822', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <button onClick={handleExportToExcel} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>تصدير Excel</button>
+              
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => setShowImportModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#34d399', border: '1px solid #34d399', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📥 استيراد Excel/CSV</button>
+                <button onClick={handleExportToExcel} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📤 تصدير Excel</button>
+              </div>
             </div>
 
             <div style={{ backgroundColor: '#131822', borderRadius: '6px', overflowX: 'auto', border: '1px solid #1f2937' }}>
@@ -415,7 +466,6 @@ export default function Dashboard() {
                           <span style={{ color: '#34d399', fontSize: '0.8rem' }}>مخصص لك</span>
                         )}
                       </td>
-                      {/* [النقطة 6]: أزرار الإجراء السريع المباشرة في الصف */}
                       <td style={{ padding: '0.8rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                         <button onClick={() => handleOpenLeadDetails(lead)} title="عرض الفيدباك" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>الفيدباك</button>
                         <a href={`tel:${lead.phone}`} title="اتصال مباشر" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>📞</a>
@@ -454,7 +504,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* [النقطة 5]: لوحة أداء المبيعات (Leaderboard) */}
         {activeTab === 'leaderboard' && userRole === 'admin' && (
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', marginBottom: '1rem' }}>🏆 لوحة أداء فريق المبيعات (Leaderboard)</h3>
@@ -496,6 +545,20 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* نافذة الاستيراد */}
+      {showImportModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '380px', border: '1px solid #34d399' }}>
+            <h3 style={{ color: '#34d399', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>استيراد عملاء من ملف CSV</h3>
+            <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '1rem' }}>الملف يجب أن يكون بصيغة CSV ويحتوي على الأعمدة بترتيب: (Name, Phone, Email, Source)</p>
+            
+            <input type="file" accept=".csv" onChange={handleFileUpload} style={{ marginBottom: '1rem', color: '#fff', fontSize: '0.8rem', width: '100%' }} />
+
+            <button type="button" onClick={() => setShowImportModal(false)} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>إغلاق</button>
+          </div>
+        </div>
+      )}
 
       {showUserModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
@@ -589,4 +652,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
