@@ -17,8 +17,8 @@ export default function Dashboard() {
   const [newNote, setNewNote] = useState('');
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'sales' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [followUpInput, setFollowUpInput] = useState('');
 
-  // خيارات حالات العميل المتاحة
   const statusOptions = [
     { value: 'New Lead', label: '📥 عميل جديد' },
     { value: 'Contacted', label: '📞 تم الاتصال' },
@@ -62,10 +62,10 @@ export default function Dashboard() {
 
   const handleOpenLeadDetails = (lead) => {
     setSelectedLead(lead);
+    setFollowUpInput(lead.next_follow_up ? new Date(lead.next_follow_up).toISOString().slice(0, 16) : '');
     fetchLeadLogs(lead.id);
   };
 
-  // تحديث حالة العميل مباشرة
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
     const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
     if (!error) {
@@ -80,6 +80,25 @@ export default function Dashboard() {
         setSelectedLead({ ...selectedLead, status: newStatus });
         fetchLeadLogs(leadId);
       }
+    }
+  };
+
+  // حفظ موعد التذكير والمتابعة
+  const handleSaveFollowUp = async (leadId, dateValue) => {
+    const { error } = await supabase.from('leads').update({ next_follow_up: dateValue || null }).eq('id', leadId);
+    if (!error) {
+      setLeads(leads.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
+      await supabase.from('lead_logs').insert([{
+        lead_id: leadId,
+        user_email: currentUser.email,
+        action_type: 'Follow-up Set',
+        content: `تم تحديد موعد متابعة جديد: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}`
+      }]);
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead({ ...selectedLead, next_follow_up: dateValue });
+        fetchLeadLogs(leadId);
+      }
+      alert('تم تحديث موعد المتابعة بنجاح');
     }
   };
 
@@ -132,6 +151,14 @@ export default function Dashboard() {
     (l.phone || '').includes(searchQuery)
   );
 
+  // تصفية العملاء الذين لديهم متابعة مستحقة اليوم أو فاتته
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dueFollowUps = leads.filter(l => {
+    if (!l.next_follow_up) return false;
+    const followDate = new Date(l.next_follow_up).toISOString().slice(0, 10);
+    return followDate <= todayStr;
+  });
+
   if (loading) return <div style={{ color: '#fff', textAlign: 'center', padding: '5rem', backgroundColor: '#0f172a', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
@@ -157,6 +184,7 @@ export default function Dashboard() {
       {/* Tabs */}
       <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #334155' }}>
         <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 العملاء ({leads.length})</button>
+        <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ التذكيرات والمتابعات ({dueFollowUps.length})</button>
         {userRole === 'admin' && (
           <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
         )}
@@ -164,6 +192,8 @@ export default function Dashboard() {
 
       {/* Main Container */}
       <main style={{ padding: '1.5rem' }}>
+        
+        {/* Leads List Tab */}
         {activeTab === 'list' && (
           <div>
             <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '400px', padding: '0.6rem', marginBottom: '1rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }} />
@@ -175,6 +205,7 @@ export default function Dashboard() {
                     <th style={{ padding: '1rem' }}>الاسم والهاتف</th>
                     <th style={{ padding: '1rem' }}>المصدر</th>
                     <th style={{ padding: '1rem' }}>الحالة</th>
+                    <th style={{ padding: '1rem' }}>موعد المتابعة</th>
                     <th style={{ padding: '1rem' }}>المسؤول</th>
                     <th style={{ padding: '1rem' }}>الإجراء</th>
                   </tr>
@@ -198,6 +229,9 @@ export default function Dashboard() {
                           ))}
                         </select>
                       </td>
+                      <td style={{ padding: '1rem', fontSize: '0.85rem', color: lead.next_follow_up ? '#34d399' : '#94a3b8' }}>
+                        {lead.next_follow_up ? new Date(lead.next_follow_up).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'غير محدد'}
+                      </td>
                       <td style={{ padding: '1rem' }}>
                         {userRole === 'admin' ? (
                           <select value={lead.assigned_to || ''} onChange={(e) => handleAssignLead(lead.id, e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#0f172a', color: lead.assigned_to ? '#34d399' : '#f87171', border: '1px solid #334155', borderRadius: '4px' }}>
@@ -209,13 +243,38 @@ export default function Dashboard() {
                         )}
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>سجل والملاحظات</button>
+                        <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>التفاصيل والمتابعة</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Reminders Tab */}
+        {activeTab === 'reminders' && (
+          <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '8px' }}>
+            <h3>⏰ التذكيرات والمتابعات المستحقة ({dueFollowUps.length})</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>هؤلاء العملاء لديهم مواعيد متابعة مطلوبة اليوم أو في تواريخ سابقة:</p>
+            {dueFollowUps.length === 0 ? (
+              <p style={{ color: '#34d399' }}>رائع! ليس لديك أي متابعات متأخرة اليوم.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                {dueFollowUps.map(lead => (
+                  <div key={lead.id} style={{ backgroundColor: '#0f172a', padding: '1rem', borderRadius: '6px', borderRight: '4px solid #ef4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{lead.name} - 📞 {lead.phone}</div>
+                      <div style={{ color: '#f87171', fontSize: '0.85rem', marginTop: '0.3rem' }}>
+                        موعد المتابعة: {new Date(lead.next_follow_up).toLocaleString('ar-EG')}
+                      </div>
+                    </div>
+                    <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.5rem 1rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>متابعة العميل</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -251,24 +310,40 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Lead Details & Log Timeline Modal */}
+      {/* Lead Details, Follow-up & Log Timeline Modal */}
       {selectedLead && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', width: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
+          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', width: '600px', maxHeight: '85vh', overflowY: 'auto' }}>
             <h2>تفاصيل العميل: {selectedLead.name}</h2>
             <p style={{ color: '#94a3b8', margin: '0.5rem 0' }}>📞 الهاتف: {selectedLead.phone} | المصدر: {selectedLead.lead_source}</p>
             
-            <div style={{ margin: '1rem 0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <span style={{ fontSize: '0.9rem' }}>الحالة الحالية:</span>
-              <select 
-                value={selectedLead.status || 'New Lead'} 
-                onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)}
-                style={{ padding: '0.4rem', backgroundColor: '#0f172a', color: '#38bdf8', border: '1px solid #334155', borderRadius: '4px', fontWeight: 'bold' }}
-              >
-                {statusOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+            {/* Status & Follow-up Section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', backgroundColor: '#0f172a', padding: '1rem', borderRadius: '6px', margin: '1rem 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>حالة العميل:</span>
+                <select 
+                  value={selectedLead.status || 'New Lead'} 
+                  onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)}
+                  style={{ padding: '0.4rem', backgroundColor: '#1e293b', color: '#38bdf8', border: '1px solid #334155', borderRadius: '4px', fontWeight: 'bold' }}
+                >
+                  {statusOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <span>موعد التذكير القادم:</span>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <input 
+                    type="datetime-local" 
+                    value={followUpInput} 
+                    onChange={(e) => setFollowUpInput(e.target.value)}
+                    style={{ padding: '0.4rem', backgroundColor: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }}
+                  />
+                  <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>حفظ التذكير</button>
+                </div>
+              </div>
             </div>
 
             <hr style={{ borderColor: '#334155', margin: '1rem 0' }} />
@@ -296,4 +371,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
