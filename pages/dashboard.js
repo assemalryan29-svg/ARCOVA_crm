@@ -22,7 +22,6 @@ export default function Dashboard() {
   const [followUpInput, setFollowUpInput] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
   
-  // مرجع لنظام الصوت البرمجي (Web Audio API)
   const audioCtxRef = useRef(null);
 
   const statusOptions = [
@@ -38,7 +37,21 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // دالة لتوليد نغمة تنبيه برمجياً (لا تحتاج لروابط خارجية وتعمل فوراً)
+  // [النقطة 4]: نظام مراقبة وتنبيه حي في الخلفية كل دقيقة
+  useEffect(() => {
+    if (!audioEnabled) return;
+
+    const interval = setInterval(() => {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const hasDue = leads.some(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
+      if (hasDue) {
+        playNotificationSound();
+      }
+    }, 60000); // يفحص كل دقيقة
+
+    return () => clearInterval(interval);
+  }, [audioEnabled, leads]);
+
   const playNotificationSound = () => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -51,25 +64,24 @@ export default function Dashboard() {
         ctx.resume();
       }
 
-      // عمل نغمتين ترحيبية (بيب بيب)
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, now); // تردد النغمة (A5)
-      osc.frequency.setValueAtTime(1100, now + 0.15);
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.setValueAtTime(880, now + 0.15);
 
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.4);
+      osc.stop(now + 0.5);
     } catch (e) {
-      console.log("Audio context error:", e);
+      console.log("Audio play error:", e);
     }
   };
 
@@ -85,9 +97,8 @@ export default function Dashboard() {
 
       setAudioEnabled(true);
       playNotificationSound();
-      alert('تم تفعيل التنبيه الصوتي بنجاح! ستسمع نغمة التنبيه الآن وفي حالة وجود متابعات مستحقة.');
     } catch (e) {
-      alert('الرجاء النقر مرة أخرى لتفعيل الصوت.');
+      alert('الرجاء النقر مرة أخرى للسماح بالتشغيل.');
     }
   };
 
@@ -116,12 +127,6 @@ export default function Dashboard() {
       
       if (leadsData) {
         setLeads(leadsData || []);
-        
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const hasDue = leadsData.some(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
-        if (hasDue && audioEnabled) {
-          playNotificationSound();
-        }
       }
     } catch (err) {
       console.log('Error fetching data:', err);
@@ -181,7 +186,7 @@ export default function Dashboard() {
         lead_id: leadId,
         user_email: currentUser.email,
         action_type: 'Status Change',
-        content: `تم تغيير حالة العميل (Feedback): ${newStatus}`
+        content: `تم تغيير حالة العميل: ${newStatus}`
       }]);
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({ ...selectedLead, status: newStatus });
@@ -236,7 +241,7 @@ export default function Dashboard() {
         lead_id: leadId,
         user_email: currentUser.email,
         action_type: 'Assign',
-        content: `تم تحويل/إسناد العميل إلى الموظف: ${target ? target.email : 'غير مخصص'}`
+        content: `تم إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}`
       }]);
       if (selectedLead) fetchLeadLogs(leadId);
     }
@@ -315,9 +320,8 @@ export default function Dashboard() {
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {/* زر تفعيل الصوت */}
           <button onClick={enableAudioAndTest} style={{ padding: '0.4rem 0.8rem', backgroundColor: audioEnabled ? '#065f46' : '#991b1b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
-            {audioEnabled ? '🔔 التنبيه الصوتي مفعل' : '🔕 تفعيل الصوت (اضغط هنا)'}
+            {audioEnabled ? '🔔 التنبيه الحي مفعل' : '🔕 تفعيل الصوت التلقائي (اضغط هنا)'}
           </button>
 
           <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{currentUser?.email}</span>
@@ -332,7 +336,12 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => setActiveTab('list')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'list' ? '#d4af37' : 'transparent', color: activeTab === 'list' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>العملاء ({leads.length})</button>
           <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'reminders' ? '#d4af37' : 'transparent', color: activeTab === 'reminders' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>المتابعات ({dueFollowUps.length})</button>
-          {userRole === 'admin' && <button onClick={() => setActiveTab('team')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>فريق العمل</button>}
+          {userRole === 'admin' && (
+            <>
+              <button onClick={() => setActiveTab('team')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>فريق العمل</button>
+              <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات (Leaderboard)</button>
+            </>
+          )}
         </div>
 
         <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
@@ -377,7 +386,7 @@ export default function Dashboard() {
                     <th style={{ padding: '0.8rem' }}>الحالة (Feedback)</th>
                     <th style={{ padding: '0.8rem' }}>الموعد القادم</th>
                     <th style={{ padding: '0.8rem' }}>المسؤول</th>
-                    <th style={{ padding: '0.8rem' }}>الإجراء</th>
+                    <th style={{ padding: '0.8rem' }}>الإجراء السريع</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -406,8 +415,11 @@ export default function Dashboard() {
                           <span style={{ color: '#34d399', fontSize: '0.8rem' }}>مخصص لك</span>
                         )}
                       </td>
-                      <td style={{ padding: '0.8rem' }}>
-                        <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.3rem 0.7rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>الفيدباك</button>
+                      {/* [النقطة 6]: أزرار الإجراء السريع المباشرة في الصف */}
+                      <td style={{ padding: '0.8rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <button onClick={() => handleOpenLeadDetails(lead)} title="عرض الفيدباك" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>الفيدباك</button>
+                        <a href={`tel:${lead.phone}`} title="اتصال مباشر" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>📞</a>
+                        <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" title="محادثة واتساب" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>🟢</a>
                       </td>
                     </tr>
                   ))}
@@ -430,11 +442,48 @@ export default function Dashboard() {
                       <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{lead.name} - {lead.phone}</div>
                       <div style={{ color: '#f87171', fontSize: '0.75rem' }}>الموعد: {new Date(lead.next_follow_up).toLocaleString('ar-EG')}</div>
                     </div>
-                    <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.3rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>فتح</button>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.3rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>فتح</button>
+                      <a href={`tel:${lead.phone}`} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>📞</a>
+                      <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>🟢</a>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* [النقطة 5]: لوحة أداء المبيعات (Leaderboard) */}
+        {activeTab === 'leaderboard' && userRole === 'admin' && (
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', marginBottom: '1rem' }}>🏆 لوحة أداء فريق المبيعات (Leaderboard)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+              {teamMembers.map(member => {
+                const memberLeads = leads.filter(l => l.assigned_to === member.id);
+                const memberWon = memberLeads.filter(l => l.status === 'Closed Won').length;
+                const memberInterested = memberLeads.filter(l => l.status === 'Interested').length;
+
+                return (
+                  <div key={member.id} style={{ backgroundColor: '#0c0f17', padding: '1rem', borderRadius: '6px', border: '1px solid #1f2937', borderTop: '3px solid #d4af37' }}>
+                    <div style={{ fontWeight: 'bold', color: '#f3f4f6', fontSize: '0.9rem' }}>{member.email}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#d4af37', marginBottom: '0.8rem' }}>الدور: {member.role}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}>
+                      <span>إجمالي العملاء:</span>
+                      <span style={{ color: '#fff', fontWeight: 'bold' }}>{memberLeads.length}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}>
+                      <span>مهتم جداً:</span>
+                      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>{memberInterested}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}>
+                      <span>تم التعاقد (Won):</span>
+                      <span style={{ color: '#34d399', fontWeight: 'bold' }}>{memberWon}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -517,7 +566,7 @@ export default function Dashboard() {
             </div>
 
             <h4 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '0.9rem', marginBottom: '0.5rem' }}>سجل الفيدباك:</h4>
-            
+
             <form onSubmit={handleAddLogNote} style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.8rem' }}>
               <input placeholder="اكتب ملاحظة أو فيدباك..." value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ flex: 1, padding: '0.5rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.8rem' }} />
               <button type="submit" style={{ padding: '0.5rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إضافة</button>
@@ -540,3 +589,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
