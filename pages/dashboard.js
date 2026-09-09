@@ -20,6 +20,11 @@ export default function Dashboard() {
   const [followUpInput, setFollowUpInput] = useState('');
   const [csvFile, setCsvFile] = useState(null);
   const [importing, setImporting] = useState(false);
+  
+  // حالة لإشعارات التنبيه الحية
+  const [latestNotification, setLatestNotification] = useState(null);
+  // رابط النغمة (تقدر تغير اللينك ده بأي رابط ملف MP3 تعمله حابب تسمعه)
+  const [customSoundUrl, setCustomSoundUrl] = useState('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
   const statusOptions = [
     { value: 'New Lead', label: '📥 عميل جديد' },
@@ -32,7 +37,35 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    // تشغيل الـ Realtime الاستماع لليدز الجديدة لحظياً
+    const channel = supabase
+      .channel('public:leads')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, (payload) => {
+        const newLead = payload.new;
+        // لو الأوزر أدمين أو الليد مخصصة للموظف الحالي
+        if (userRole === 'admin' || newLead.assigned_to === currentUser?.id) {
+          playAlertSound();
+          setLatestNotification(`⚠️ تنبيه: تم تسجيل عميل جديد (${newLead.name})`);
+          setLeads(prev => [newLead, ...prev]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser, userRole]);
+
+  // دالة تشغيل التنبيه الصوتي
+  const playAlertSound = () => {
+    try {
+      const audio = new Audio(customSoundUrl);
+      audio.play().catch(e => console.log("Audio play blocked by browser policy:", e));
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
   const fetchData = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -242,6 +275,14 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif', direction: 'rtl' }}>
       
+      {/* شريط الإشعارات الحية المنبثقة أعلى الشاشة */}
+      {latestNotification && (
+        <div style={{ backgroundColor: '#2563eb', color: '#fff', padding: '0.8rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', position: 'sticky', top: 0, zIndex: 1100 }}>
+          <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{latestNotification}</div>
+          <button onClick={() => setLatestNotification(null)} style={{ backgroundColor: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>✖</button>
+        </div>
+      )}
+
       {/* Header */}
       <header style={{ backgroundColor: '#1e293b', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -260,15 +301,30 @@ export default function Dashboard() {
       </header>
 
       {/* Tabs */}
-      <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #334155', flexWrap: 'wrap' }}>
-        <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 العملاء ({leads.length})</button>
-        <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ التذكيرات ({dueFollowUps.length})</button>
-        {userRole === 'admin' && (
-          <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel</button>
-        )}
-        {userRole === 'admin' && (
-          <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
-        )}
+      <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #334155', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 العملاء ({leads.length})</button>
+          <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ التذكيرات ({dueFollowUps.length})</button>
+          {userRole === 'admin' && (
+            <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel</button>
+          )}
+          {userRole === 'admin' && (
+            <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
+          )}
+        </div>
+
+        {/* إعداد رابط النغمة الصوتية المخصصة */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+          <span>🎵 رابط نغمة التنبيه:</span>
+          <input 
+            type="text" 
+            value={customSoundUrl} 
+            onChange={(e) => setCustomSoundUrl(e.target.value)} 
+            style={{ padding: '0.3rem 0.5rem', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: '4px', width: '180px', fontSize: '0.75rem' }} 
+            title="ضع هنا رابط ملف MP3 مباشر"
+          />
+          <button onClick={playTestSound => playAlertSound()} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>تجربة</button>
+        </div>
       </div>
 
       {/* Main Container */}
@@ -483,3 +539,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
