@@ -1,66 +1,45 @@
 import { createClient } from '@supabase/supabase-js';
 
-// تهيئة عميل Supabase باستخدام Service Role للتحكم الكامل
-const supabase = createClient(
+// إنشاء اتصال باستخدام Service Role Key لضمان صلاحية الكتابة من السيرفر
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // مفتاح الصلاحيات العليا لحفظ البيانات من الـ API الخارجي
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export default async function handler(req, res) {
   // السماح فقط بطلبات POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // 1. التحقق من المفتاح السري للحماية (API Key Authentication)
-    const apiKey = req.headers['x-api-key'];
-    if (!apiKey || apiKey !== process.env.CUSTOM_API_SECRET_KEY) {
-      return res.status(401).json({ success: false, message: 'Unauthorized: Invalid API Key' });
+    const { name, phone, email, lead_source } = req.body;
+
+    // التحقق من البيانات الأساسية
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'Name and phone are required' });
     }
 
-    const { name, phone, email, lead_source, notes } = req.body;
-
-    // 2. التحقق من البيانات الأساسية
-    if (!phone) {
-      return res.status(400).json({ success: false, message: 'رقم الهاتف مطلوب' });
-    }
-
-    // 3. إدخال العميل إلى قاعدة البيانات في Supabase
-    const { data, error } = await supabase
+    // إدخال العميل في جدول leads
+    const { data, error } = await supabaseAdmin
       .from('leads')
-      .insert([{
-        name: name || 'عميل جديد عبر الـ API',
-        phone: phone,
-        email: email || '',
-        lead_source: lead_source || 'External API',
-        status: 'New Lead',
-        temperature: 'Warm',
-        notes: notes || ''
-      }])
-      .select()
-      .single();
+      .insert([
+        {
+          name: name,
+          phone: phone,
+          email: email || '',
+          lead_source: lead_source || 'Facebook Ads',
+          status: 'New Lead'
+        }
+      ])
+      .select();
 
-    if (error) throw error;
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
 
-    // 4. (اختياري) تسجيل حدث في الـ lead_logs
-    await supabase.from('lead_logs').insert([{
-      lead_id: data.id,
-      user_email: 'API System',
-      action_type: 'System',
-      content: '📥 تم استقبال العميل بنجاح عبر الـ API الخارجي'
-    }]);
-
-    return res.status(200).json({
-      success: true,
-      message: 'تم حفظ العميل بنجاح',
-      lead: data
-    });
-
+    return res.status(200).json({ success: true, message: 'Lead added successfully', data });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: err.message
-    });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
