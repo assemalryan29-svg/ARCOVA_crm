@@ -73,12 +73,18 @@ export default function Dashboard() {
     
     setCurrentUser(session.user);
 
-    const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
-    const role = roleData?.role || 'sales';
+        const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
+    
+    // تحديد الصلاحية مع فرض أن إيميلك أدمن دائماً حتى لو الجدول فارغ أو فيه خطأ
+    let role = roleData?.role || 'sales';
+    if (session.user.email === 'assemryan0@gmail.com') {
+      role = 'admin';
+    }
     setUserRole(role);
 
     const { data: usersData } = await supabase.from('user_roles').select('*');
     if (usersData) setTeamMembers(usersData);
+
 
     let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
     if (role !== 'admin') {
