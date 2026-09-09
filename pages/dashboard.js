@@ -147,14 +147,12 @@ export default function Dashboard() {
     }
   };
 
-  // وظيفة تصدير العملاء إلى ملف CSV (Excel)
   const handleExportToExcel = () => {
     if (leads.length === 0) {
       alert('لا توجد بيانات عملاء لتصديرها');
       return;
     }
 
-    // كتابة رأس الأعمدة باللغة العربية أو الإنجليزية
     const headers = ['Name', 'Phone', 'Email', 'Source', 'Status', 'Next Follow Up'];
     const rows = leads.map(l => [
       `"${l.name || ''}"`,
@@ -266,10 +264,10 @@ export default function Dashboard() {
         <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 العملاء ({leads.length})</button>
         <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ التذكيرات ({dueFollowUps.length})</button>
         {userRole === 'admin' && (
-          <>
-            <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel</button>
-            <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
-          </>
+          <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel</button>
+        )}
+        {userRole === 'admin' && (
+          <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
         )}
       </div>
 
@@ -485,4 +483,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
