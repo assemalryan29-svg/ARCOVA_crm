@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
 export default function Dashboard() {
@@ -20,8 +20,9 @@ export default function Dashboard() {
   const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
-  const [csvFile, setCsvFile] = useState(null);
-  const [importing, setImporting] = useState(false);
+  
+  // مرجع لتشغيل الصوت
+  const audioRef = useRef(null);
 
   const statusOptions = [
     { value: 'New Lead', label: '📥 عميل جديد' },
@@ -35,6 +36,12 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const playNotificationSound = () => {
+    if (audioRef.current) {
+      audioRef.current.play().catch(e => console.log("Audio play blocked:", e));
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -58,7 +65,17 @@ export default function Dashboard() {
         leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
       }
       const { data: leadsData } = await leadsQuery;
-      if (leadsData) setLeads(leadsData || []);
+      
+      if (leadsData) {
+        setLeads(leadsData || []);
+        
+        // التحقق من وجود متابعات مستحقة لتشغيل التنبيه الصوتي
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const hasDue = leadsData.some(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
+        if (hasDue) {
+          playNotificationSound();
+        }
+      }
     } catch (err) {
       console.log('Error fetching data:', err);
     } finally {
@@ -233,11 +250,21 @@ export default function Dashboard() {
     return new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr;
   });
 
+  // حساب الإحصائيات السريعة
+  const totalLeadsCount = leads.length;
+  const interestedCount = leads.filter(l => l.status === 'Interested').length;
+  const closedWonCount = leads.filter(l => l.status === 'Closed Won').length;
+
   if (loading) return <div style={{ color: '#d4af37', textAlign: 'center', padding: '5rem', backgroundColor: '#0c0f17', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
       
+      {/* عنصر الصوت للتنبيه */}
+      <audio ref={audioRef} preload="auto">
+        <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_12d22a8435.mp3?filename=notification-sound-7062.mp3" type="audio/mpeg" />
+      </audio>
+
       <header style={{ backgroundColor: '#131822', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #d4af37' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h1 style={{ margin: 0, color: '#d4af37', fontSize: '1.2rem', fontFamily: 'serif' }}>ARCOVA CRM</h1>
@@ -268,6 +295,27 @@ export default function Dashboard() {
       </div>
 
       <main style={{ padding: '1.5rem' }}>
+        
+        {/* قسم الإحصائيات السريعة */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #d4af37', padding: '1rem', borderRadius: '6px' }}>
+            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>إجمالي العملاء</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#d4af37', marginTop: '0.3rem' }}>{totalLeadsCount}</div>
+          </div>
+          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #f59e0b', padding: '1rem', borderRadius: '6px' }}>
+            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>مهتم جداً</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#f59e0b', marginTop: '0.3rem' }}>{interestedCount}</div>
+          </div>
+          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #34d399', padding: '1rem', borderRadius: '6px' }}>
+            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>تم التعاقد (Won)</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#34d399', marginTop: '0.3rem' }}>{closedWonCount}</div>
+          </div>
+          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #ef4444', padding: '1rem', borderRadius: '6px' }}>
+            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>متابعات مستحقة اليوم</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#ef4444', marginTop: '0.3rem' }}>{dueFollowUps.length}</div>
+          </div>
+        </div>
+
         {activeTab === 'list' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
@@ -450,4 +498,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
