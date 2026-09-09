@@ -18,6 +18,8 @@ export default function Dashboard() {
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'sales' });
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
+  const [csvFile, setCsvFile] = useState(null);
+  const [importing, setImporting] = useState(false);
 
   const statusOptions = [
     { value: 'New Lead', label: '📥 عميل جديد' },
@@ -83,7 +85,6 @@ export default function Dashboard() {
     }
   };
 
-  // حفظ موعد التذكير والمتابعة
   const handleSaveFollowUp = async (leadId, dateValue) => {
     const { error } = await supabase.from('leads').update({ next_follow_up: dateValue || null }).eq('id', leadId);
     if (!error) {
@@ -146,12 +147,91 @@ export default function Dashboard() {
     }
   };
 
+  // وظيفة تصدير العملاء إلى ملف CSV (Excel)
+  const handleExportToExcel = () => {
+    if (leads.length === 0) {
+      alert('لا توجد بيانات عملاء لتصديرها');
+      return;
+    }
+
+    // كتابة رأس الأعمدة باللغة العربية أو الإنجليزية
+    const headers = ['Name', 'Phone', 'Email', 'Source', 'Status', 'Next Follow Up'];
+    const rows = leads.map(l => [
+      `"${l.name || ''}"`,
+      `"${l.phone || ''}"`,
+      `"${l.email || ''}"`,
+      `"${l.lead_source || ''}"`,
+      `"${l.status || ''}"`,
+      `"${l.next_follow_up ? new Date(l.next_follow_up).toLocaleString('ar-EG') : ''}"`
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Arcova_Leads_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCsv = async (e) => {
+    e.preventDefault();
+    if (!csvFile) {
+      alert('الرجاء اختيار ملف CSV أولاً');
+      return;
+    }
+
+    setImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split('\n');
+        const rows = lines.map(line => line.split(','));
+
+        let insertedCount = 0;
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (row.length >= 2 && row[1]) {
+            const name = row[0]?.replace(/"/g, '')?.trim() || 'عميل مستورد';
+            const phone = row[1]?.replace(/"/g, '')?.trim();
+            const email = row[2]?.replace(/"/g, '')?.trim() || '';
+            const lead_source = row[3]?.replace(/"/g, '')?.trim() || 'Excel Import';
+
+            if (phone) {
+              await supabase.from('leads').insert([{
+                name,
+                phone,
+                email,
+                lead_source,
+                status: 'New Lead'
+              }]);
+              insertedCount++;
+            }
+          }
+        }
+
+        alert(`تم استيراد ${insertedCount} عميل بنجاح!`);
+        setCsvFile(null);
+        setImporting(false);
+        setActiveTab('list');
+        fetchData();
+      } catch (err) {
+        alert('حدث خطأ أثناء قراءة الملف: ' + err.message);
+        setImporting(false);
+      }
+    };
+    reader.readAsText(csvFile);
+  };
+
   const filteredLeads = leads.filter(l => 
     (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
     (l.phone || '').includes(searchQuery)
   );
 
-  // تصفية العملاء الذين لديهم متابعة مستحقة اليوم أو فاتته
   const todayStr = new Date().toISOString().slice(0, 10);
   const dueFollowUps = leads.filter(l => {
     if (!l.next_follow_up) return false;
@@ -182,11 +262,14 @@ export default function Dashboard() {
       </header>
 
       {/* Tabs */}
-      <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #334155' }}>
+      <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #334155', flexWrap: 'wrap' }}>
         <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 العملاء ({leads.length})</button>
-        <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ التذكيرات والمتابعات ({dueFollowUps.length})</button>
+        <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ التذكيرات ({dueFollowUps.length})</button>
         {userRole === 'admin' && (
-          <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
+          <>
+            <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel</button>
+            <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
+          </>
         )}
       </div>
 
@@ -196,7 +279,13 @@ export default function Dashboard() {
         {/* Leads List Tab */}
         {activeTab === 'list' && (
           <div>
-            <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '400px', padding: '0.6rem', marginBottom: '1rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '400px', padding: '0.6rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }} />
+              
+              <button onClick={handleExportToExcel} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                📊 تصدير العملاء لملف Excel
+              </button>
+            </div>
 
             <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
@@ -257,11 +346,10 @@ export default function Dashboard() {
         {activeTab === 'reminders' && (
           <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '8px' }}>
             <h3>⏰ التذكيرات والمتابعات المستحقة ({dueFollowUps.length})</h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>هؤلاء العملاء لديهم مواعيد متابعة مطلوبة اليوم أو في تواريخ سابقة:</p>
             {dueFollowUps.length === 0 ? (
-              <p style={{ color: '#34d399' }}>رائع! ليس لديك أي متابعات متأخرة اليوم.</p>
+              <p style={{ color: '#34d399', marginTop: '1rem' }}>رائع! ليس لديك أي متابعات متأخرة اليوم.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
                 {dueFollowUps.map(lead => (
                   <div key={lead.id} style={{ backgroundColor: '#0f172a', padding: '1rem', borderRadius: '6px', borderRight: '4px solid #ef4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -275,6 +363,33 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* CSV Import Tab */}
+        {activeTab === 'import' && userRole === 'admin' && (
+          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', maxWidth: '600px' }}>
+            <h3>📥 استيراد بيانات العملاء (CSV)</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0.8rem 0 1.5rem 0' }}>
+              قم برفع ملف CSV بحيث يكون الترتيب في الأعمدة كالتالي: <br/>
+              <code>الاسم (Name), الهاتف (Phone), البريد (Email), المصدر (Source)</code>
+            </p>
+            
+            <form onSubmit={handleImportCsv} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input 
+                type="file" 
+                accept=".csv" 
+                onChange={(e) => setCsvFile(e.target.files[0])}
+                style={{ padding: '0.8rem', backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', color: '#fff' }} 
+              />
+              <button 
+                type="submit" 
+                disabled={importing}
+                style={{ padding: '0.8rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                {importing ? 'جاري الاستيراد...' : 'رفع واستيراد العملاء'}
+              </button>
+            </form>
           </div>
         )}
 
@@ -310,14 +425,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Lead Details, Follow-up & Log Timeline Modal */}
+      {/* Lead Details Modal */}
       {selectedLead && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', width: '600px', maxHeight: '85vh', overflowY: 'auto' }}>
             <h2>تفاصيل العميل: {selectedLead.name}</h2>
             <p style={{ color: '#94a3b8', margin: '0.5rem 0' }}>📞 الهاتف: {selectedLead.phone} | المصدر: {selectedLead.lead_source}</p>
             
-            {/* Status & Follow-up Section */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', backgroundColor: '#0f172a', padding: '1rem', borderRadius: '6px', margin: '1rem 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>حالة العميل:</span>
@@ -332,7 +446,7 @@ export default function Dashboard() {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <span>موعد التذكير القادم:</span>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
                   <input 
@@ -341,7 +455,7 @@ export default function Dashboard() {
                     onChange={(e) => setFollowUpInput(e.target.value)}
                     style={{ padding: '0.4rem', backgroundColor: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }}
                   />
-                  <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>حفظ التذكير</button>
+                  <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>حفظ</button>
                 </div>
               </div>
             </div>
@@ -371,3 +485,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
