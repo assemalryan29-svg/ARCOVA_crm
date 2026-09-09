@@ -22,9 +22,7 @@ export default function Dashboard() {
   const [followUpInput, setFollowUpInput] = useState('');
   const [csvFile, setCsvFile] = useState(null);
   const [importing, setImporting] = useState(false);
-  
   const [latestNotification, setLatestNotification] = useState(null);
-  const [customSoundUrl, setCustomSoundUrl] = useState('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
   const statusOptions = [
     { value: 'New Lead', label: '📥 عميل جديد' },
@@ -37,55 +35,36 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-
-    const channel = supabase
-      .channel('public:leads')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, (payload) => {
-        const newLead = payload.new;
-        if (userRole === 'admin' || newLead.assigned_to === currentUser?.id) {
-          playAlertSound();
-          setLatestNotification(`⚠️ تنبيه: تم تسجيل عميل عقاري جديد (${newLead.name})`);
-          setLeads(prev => [newLead, ...prev]);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser, userRole]);
-
-  const playAlertSound = () => {
-    try {
-      const audio = new Audio(customSoundUrl);
-      audio.play().catch(e => console.log(e));
-    } catch (err) { console.log(err); }
-  };
+  }, []);
 
   const fetchData = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.href = '/'; return; }
-    
-    setCurrentUser(session.user);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { window.location.href = '/'; return; }
+      
+      setCurrentUser(session.user);
 
-    const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
-    let role = roleData?.role || 'sales';
-    if (session.user.email === 'assemryan0@gmail.com') {
-      role = 'admin';
+      const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
+      let role = roleData?.role || 'sales';
+      if (session.user.email === 'assemryan0@gmail.com') {
+        role = 'admin';
+      }
+      setUserRole(role);
+
+      const { data: usersData } = await supabase.from('user_roles').select('*');
+      if (usersData) setTeamMembers(usersData);
+
+      let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
+      if (role !== 'admin') {
+        leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
+      }
+      const { data: leadsData } = await leadsQuery;
+      if (leadsData) setLeads(leadsData || []);
+    } catch (err) {
+      console.log('Error fetching data:', err);
+    } finally {
+      setLoading(false);
     }
-    setUserRole(role);
-
-    const { data: usersData } = await supabase.from('user_roles').select('*');
-    if (usersData) setTeamMembers(usersData);
-
-    let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
-    if (role !== 'admin') {
-      leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
-    }
-    const { data: leadsData } = await leadsQuery;
-    if (leadsData) setLeads(leadsData || []);
-
-    setLoading(false);
   };
 
   const fetchLeadLogs = async (leadId) => {
@@ -99,7 +78,7 @@ export default function Dashboard() {
     fetchLeadLogs(lead.id);
   };
 
-  // إضافة عميل يدوياً مع تجاوز قيود الـ RLS مؤقتاً عبر الـ API المباشر
+  // إضافة عميل يدوياً مع معالجة الأخطاء تماماً
   const handleCreateManualLead = async (e) => {
     e.preventDefault();
     if (!newLeadData.name || !newLeadData.phone) {
@@ -107,22 +86,26 @@ export default function Dashboard() {
       return;
     }
 
-    const { error } = await supabase.from('leads').insert([{
-      name: newLeadData.name,
-      phone: newLeadData.phone,
-      email: newLeadData.email,
-      lead_source: newLeadData.lead_source,
-      status: 'New Lead',
-      assigned_to: userRole === 'admin' ? null : currentUser.id
-    }]);
+    try {
+      const { error } = await supabase.from('leads').insert([{
+        name: newLeadData.name,
+        phone: newLeadData.phone,
+        email: newLeadData.email || '',
+        lead_source: newLeadData.lead_source,
+        status: 'New Lead',
+        assigned_to: userRole === 'admin' ? null : currentUser.id
+      }]);
 
-    if (error) {
-      alert('خطأ في قاعدة البيانات: ' + error.message);
-    } else {
-      alert('تم إضافة العميل بنجاح لمنظومة ARCOVA!');
-      setShowAddLeadModal(false);
-      setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual' });
-      fetchData();
+      if (error) {
+        alert('خطأ في الإضافة: ' + error.message);
+      } else {
+        alert('تم إضافة العميل بنجاح لمنظومة ARCOVA!');
+        setShowAddLeadModal(false);
+        setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual' });
+        fetchData();
+      }
+    } catch (err) {
+      alert('تعذر الاتصال بالخادم، تأكد من اتصال الإنترنت.');
     }
   };
 
@@ -191,7 +174,7 @@ export default function Dashboard() {
     }
   };
 
-  // حل مشكلة إضافة الموظف عن طريق إدراج مباشر آمن يتخطى قيود الـ Fetch
+  // إضافة موظف مع تخطي مشاكل الـ Fetch المتصفح
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
@@ -217,7 +200,7 @@ export default function Dashboard() {
         fetchData();
       }
     } catch (err) {
-      alert('حدث خطأ بالاتصال، يرجى المحاولة مرة أخرى.');
+      alert('خطأ في الاتصال بالشبكة (Failed to fetch). يرجى التأكد من إعدادات مشروع Supabase.');
     }
   };
 
@@ -252,17 +235,9 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
       
-      {latestNotification && (
-        <div style={{ backgroundColor: '#1e2530', color: '#d4af37', borderBottom: '1px solid #d4af37', padding: '0.8rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1100 }}>
-          <div style={{ fontWeight: 'bold' }}>{latestNotification}</div>
-          <button onClick={() => setLatestNotification(null)} style={{ background: 'none', border: 'none', color: '#d4af37', cursor: 'pointer', fontSize: '1.2rem' }}>✖</button>
-        </div>
-      )}
-
       {/* Header الفاخر لهوية ARCOVA */}
       <header style={{ backgroundColor: '#131822', padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #d4af37' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-          {/* محاكاة إطارات اللوجو الذهبى الفاخر */}
           <div style={{ width: '42px', height: '52px', border: '2px solid #d4af37', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0c0f17' }}>
             <span style={{ color: '#d4af37', fontWeight: 'bold', fontSize: '0.9rem', lineHeight: 1 }}>A</span>
             <span style={{ color: '#d4af37', fontWeight: 'bold', fontSize: '0.9rem', lineHeight: 1 }}>V</span>
@@ -279,13 +254,13 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
           <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>{currentUser?.email}</span>
           {userRole === 'admin' && (
-            <button onClick={() => setShowUserModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' }}>+ إضافة موظف</button>
+            <button onClick={() => setShowUserModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ إضافة موظف</button>
           )}
           <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} style={{ padding: '0.5rem 1rem', backgroundColor: '#374151', color: '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>تسجيل خروج</button>
         </div>
       </header>
 
-      {/* Tabs & Quick Actions */}
+      {/* Navigation Tabs */}
       <div style={{ backgroundColor: '#131822', padding: '0.6rem 2.5rem', display: 'flex', gap: '0.8rem', borderBottom: '1px solid #1f2937', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
           <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#d4af37' : 'transparent', color: activeTab === 'list' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📑 إدارة العملاء ({leads.length})</button>
@@ -501,3 +476,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
