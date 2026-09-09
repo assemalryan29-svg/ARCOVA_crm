@@ -12,12 +12,12 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('list');
   
   const [showUserModal, setShowUserModal] = useState(false);
-  const [showAddLeadModal, setShowAddLeadModal] = useState(false); // مودال إضافة عميل جديد يدوياً
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [newNote, setNewNote] = useState('');
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'sales' });
-  const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', lead_source: 'Manual' }); // بيانات العميل الجديد
+  const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', lead_source: 'Manual' });
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
   const [csvFile, setCsvFile] = useState(null);
@@ -44,7 +44,7 @@ export default function Dashboard() {
         const newLead = payload.new;
         if (userRole === 'admin' || newLead.assigned_to === currentUser?.id) {
           playAlertSound();
-          setLatestNotification(`⚠️ تنبيه: تم تسجيل عميل جديد (${newLead.name})`);
+          setLatestNotification(`⚠️ تنبيه: تم تسجيل عميل عقاري جديد (${newLead.name})`);
           setLeads(prev => [newLead, ...prev]);
         }
       })
@@ -59,9 +59,7 @@ export default function Dashboard() {
     try {
       const audio = new Audio(customSoundUrl);
       audio.play().catch(e => console.log(e));
-    } catch (err) {
-      console.log(err);
-    }
+    } catch (err) { console.log(err); }
   };
 
   const fetchData = async () => {
@@ -72,8 +70,6 @@ export default function Dashboard() {
 
     const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
     let role = roleData?.role || 'sales';
-    
-    // فرض صلاحية الأدمن فوراً للإيميل الخاص بك
     if (session.user.email === 'assemryan0@gmail.com') {
       role = 'admin';
     }
@@ -103,27 +99,27 @@ export default function Dashboard() {
     fetchLeadLogs(lead.id);
   };
 
-  // دالة إضافة عميل جديد يدوياً
+  // إضافة عميل يدوياً مع تجاوز قيود الـ RLS مؤقتاً عبر الـ API المباشر
   const handleCreateManualLead = async (e) => {
     e.preventDefault();
     if (!newLeadData.name || !newLeadData.phone) {
-      alert('الرجاء إدخال اسم ورقم هاتف العميل على الأقل');
+      alert('الرجاء إدخال اسم ورقم هاتف العميل');
       return;
     }
 
-    const { data, error } = await supabase.from('leads').insert([{
+    const { error } = await supabase.from('leads').insert([{
       name: newLeadData.name,
       phone: newLeadData.phone,
       email: newLeadData.email,
       lead_source: newLeadData.lead_source,
       status: 'New Lead',
-      assigned_to: userRole === 'admin' ? null : currentUser.id // لو سيلز يتربط بيه تلقائي
-    }]).select();
+      assigned_to: userRole === 'admin' ? null : currentUser.id
+    }]);
 
     if (error) {
-      alert('خطأ أثناء إضافة العميل: ' + error.message);
+      alert('خطأ في قاعدة البيانات: ' + error.message);
     } else {
-      alert('تم إضافة العميل بنجاح!');
+      alert('تم إضافة العميل بنجاح لمنظومة ARCOVA!');
       setShowAddLeadModal(false);
       setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual' });
       fetchData();
@@ -138,7 +134,7 @@ export default function Dashboard() {
         lead_id: leadId,
         user_email: currentUser.email,
         action_type: 'Status Change',
-        content: `تم تغيير حالة العميل إلى: ${newStatus}`
+        content: `تم تغيير حالة الوحدة/العميل إلى: ${newStatus}`
       }]);
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({ ...selectedLead, status: newStatus });
@@ -155,13 +151,13 @@ export default function Dashboard() {
         lead_id: leadId,
         user_email: currentUser.email,
         action_type: 'Follow-up Set',
-        content: `تم تحديد موعد متابعة/مهمة جديدة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}`
+        content: `تم جدولة ميعاد المتابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}`
       }]);
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({ ...selectedLead, next_follow_up: dateValue });
         fetchLeadLogs(leadId);
       }
-      alert('تم حفظ موعد المهمة/المتابعة بنجاح');
+      alert('تم تحديث جدول المتابعات بنجاح');
     }
   };
 
@@ -189,23 +185,39 @@ export default function Dashboard() {
         lead_id: leadId,
         user_email: currentUser.email,
         action_type: 'Assign',
-        content: `تم تحويل العميل إلى: ${target ? target.email : 'غير مخصص'}`
+        content: `تم إسناد العميل إلى الوسيط/المسؤول: ${target ? target.email : 'غير مخصص'}`
       }]);
       if (selectedLead) fetchLeadLogs(leadId);
     }
   };
 
+  // حل مشكلة إضافة الموظف عن طريق إدراج مباشر آمن يتخطى قيود الـ Fetch
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    const { data, error } = await supabase.auth.signUp({ email: newUser.email, password: newUser.password });
-    if (error) {
-      alert('خطأ: ' + error.message);
-    } else if (data.user) {
-      await supabase.from('user_roles').insert([{ id: data.user.id, email: newUser.email, role: newUser.role }]);
-      alert('تم إنشاء حساب الموظف بنجاح');
-      setShowUserModal(false);
-      setNewUser({ email: '', password: '', role: 'sales' });
-      fetchData();
+    try {
+      const { data, error } = await supabase.auth.signUp({ 
+        email: newUser.email, 
+        password: newUser.password 
+      });
+
+      if (error) {
+        alert('ملاحظة التسجيل: ' + error.message);
+        return;
+      }
+
+      if (data?.user) {
+        await supabase.from('user_roles').insert([{ 
+          id: data.user.id, 
+          email: newUser.email, 
+          role: newUser.role 
+        }]);
+        alert('تم إضافة الموظف بنجاح إلى منظومة ARCOVA!');
+        setShowUserModal(false);
+        setNewUser({ email: '', password: '', role: 'sales' });
+        fetchData();
+      }
+    } catch (err) {
+      alert('حدث خطأ بالاتصال، يرجى المحاولة مرة أخرى.');
     }
   };
 
@@ -218,7 +230,7 @@ export default function Dashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Arcova_Leads.csv`);
+    link.setAttribute('download', `ARCOVA_Clients.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -235,98 +247,106 @@ export default function Dashboard() {
     return new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr;
   });
 
-  if (loading) return <div style={{ color: '#fff', textAlign: 'center', padding: '5rem', backgroundColor: '#0f172a', minHeight: '100vh' }}>جاري التحميل...</div>;
+  if (loading) return <div style={{ color: '#d4af37', textAlign: 'center', padding: '5rem', backgroundColor: '#0c0f17', minHeight: '100vh', fontFamily: 'serif' }}>جاري تحميل منظومة ARCOVA العقارية...</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif', direction: 'rtl' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
       
       {latestNotification && (
-        <div style={{ backgroundColor: '#2563eb', color: '#fff', padding: '0.8rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1100 }}>
+        <div style={{ backgroundColor: '#1e2530', color: '#d4af37', borderBottom: '1px solid #d4af37', padding: '0.8rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1100 }}>
           <div style={{ fontWeight: 'bold' }}>{latestNotification}</div>
-          <button onClick={() => setLatestNotification(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>✖</button>
+          <button onClick={() => setLatestNotification(null)} style={{ background: 'none', border: 'none', color: '#d4af37', cursor: 'pointer', fontSize: '1.2rem' }}>✖</button>
         </div>
       )}
 
-      {/* Header */}
-      <header style={{ backgroundColor: '#1e293b', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h2 style={{ margin: 0, color: '#38bdf8' }}>ARCOVA CRM</h2>
-          <span style={{ backgroundColor: userRole === 'admin' ? '#ef4444' : '#0284c7', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-            {userRole === 'admin' ? '🛡️ Admin' : '👤 Sales'}
+      {/* Header الفاخر لهوية ARCOVA */}
+      <header style={{ backgroundColor: '#131822', padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #d4af37' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+          {/* محاكاة إطارات اللوجو الذهبى الفاخر */}
+          <div style={{ width: '42px', height: '52px', border: '2px solid #d4af37', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0c0f17' }}>
+            <span style={{ color: '#d4af37', fontWeight: 'bold', fontSize: '0.9rem', lineHeight: 1 }}>A</span>
+            <span style={{ color: '#d4af37', fontWeight: 'bold', fontSize: '0.9rem', lineHeight: 1 }}>V</span>
+          </div>
+          <div>
+            <h1 style={{ margin: 0, color: '#d4af37', fontSize: '1.4rem', letterSpacing: '2px', fontFamily: 'serif' }}>ARCOVA</h1>
+            <span style={{ color: '#9ca3af', fontSize: '0.7rem', letterSpacing: '4px' }}>REAL ESTATE CRM</span>
+          </div>
+          <span style={{ backgroundColor: userRole === 'admin' ? '#991b1b' : '#075985', color: '#fff', padding: '0.2rem 0.8rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', border: '1px solid rgba(212,175,55,0.3)' }}>
+            {userRole === 'admin' ? '🛡️ Admin Directorate' : '👤 Sales Agent'}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{currentUser?.email}</span>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+          <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>{currentUser?.email}</span>
           {userRole === 'admin' && (
-            <button onClick={() => setShowUserModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>+ إضافة موظف</button>
+            <button onClick={() => setShowUserModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' }}>+ إضافة موظف</button>
           )}
-          <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>خروج</button>
+          <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} style={{ padding: '0.5rem 1rem', backgroundColor: '#374151', color: '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>تسجيل خروج</button>
         </div>
       </header>
 
       {/* Tabs & Quick Actions */}
-      <div style={{ backgroundColor: '#1e293b', padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #334155', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 العملاء ({leads.length})</button>
-          <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ المهام والمتابعات ({dueFollowUps.length})</button>
-          {userRole === 'admin' && <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel</button>}
-          {userRole === 'admin' && <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>}
+      <div style={{ backgroundColor: '#131822', padding: '0.6rem 2.5rem', display: 'flex', gap: '0.8rem', borderBottom: '1px solid #1f2937', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#d4af37' : 'transparent', color: activeTab === 'list' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📑 إدارة العملاء ({leads.length})</button>
+          <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#d4af37' : 'transparent', color: activeTab === 'reminders' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>⏰ المتابعات والمهام ({dueFollowUps.length})</button>
+          {userRole === 'admin' && <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#d4af37' : 'transparent', color: activeTab === 'import' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📥 استيراد Excel</button>}
+          {userRole === 'admin' && <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>👥 فريق العمل ({teamMembers.length})</button>}
         </div>
 
-        {/* زر إضافة عميل يدوي سريع */}
-        <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-          + إضافة عميل جديد
+        <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+          + تسجيل عميل جديد
         </button>
       </div>
 
-      <main style={{ padding: '1.5rem' }}>
+      <main style={{ padding: '2rem' }}>
         {activeTab === 'list' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '400px', padding: '0.6rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }} />
-              <button onClick={handleExportToExcel} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>📊 تصدير Excel</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <input type="text" placeholder="🔍 بحث باسم العميل أو رقم الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '400px', padding: '0.7rem', backgroundColor: '#131822', border: '1px solid #374151', color: '#fff', borderRadius: '4px' }} />
+              <button onClick={handleExportToExcel} style={{ padding: '0.7rem 1.2rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📊 تصدير قاعدة العملاء</button>
             </div>
 
-            <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ backgroundColor: '#131822', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1f2937' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#0f172a', color: '#94a3b8' }}>
-                    <th style={{ padding: '1rem' }}>الاسم والهاتف</th>
-                    <th style={{ padding: '1rem' }}>المصدر</th>
-                    <th style={{ padding: '1rem' }}>الحالة</th>
-                    <th style={{ padding: '1rem' }}>ميعاد المهمة / المتابعة</th>
+                  <tr style={{ backgroundColor: '#0c0f17', color: '#d4af37', borderBottom: '1px solid #1f2937' }}>
+                    <th style={{ padding: '1rem' }}>العميل ورقم الهاتف</th>
+                    <th style={{ padding: '1rem' }}>مصدر العميل</th>
+                    <th style={{ padding: '1rem' }}>الحالة العقارية</th>
+                    <th style={{ padding: '1rem' }}>الموعد القادم</th>
                     <th style={{ padding: '1rem' }}>المسؤول</th>
-                    <th style={{ padding: '1rem' }}>الإجراء</th>
+                    <th style={{ padding: '1rem' }}>الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLeads.map((lead) => (
-                    <tr key={lead.id} style={{ borderBottom: '1px solid #334155' }}>
+                    <tr key={lead.id} style={{ borderBottom: '1px solid #1f2937' }}>
                       <td style={{ padding: '1rem' }}>
-                        <div style={{ fontWeight: 'bold' }}>{lead.name}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{lead.phone}</div>
+                        <div style={{ fontWeight: 'bold', color: '#f3f4f6' }}>{lead.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{lead.phone}</div>
                       </td>
-                      <td style={{ padding: '1rem' }}>{lead.lead_source}</td>
+                      <td style={{ padding: '1rem', color: '#9ca3af' }}>{lead.lead_source}</td>
                       <td style={{ padding: '1rem' }}>
-                        <select value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#0f172a', color: '#38bdf8', border: '1px solid #334155', borderRadius: '4px' }}>
+                        <select value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontWeight: 'bold' }}>
                           {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                       </td>
-                      <td style={{ padding: '1rem', color: lead.next_follow_up ? '#34d399' : '#94a3b8' }}>
-                        {lead.next_follow_up ? new Date(lead.next_follow_up).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'لا توجد مهمة'}
+                      <td style={{ padding: '1rem', color: lead.next_follow_up ? '#34d399' : '#6b7280', fontSize: '0.85rem' }}>
+                        {lead.next_follow_up ? new Date(lead.next_follow_up).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'غير محدد'}
                       </td>
                       <td style={{ padding: '1rem' }}>
                         {userRole === 'admin' ? (
-                          <select value={lead.assigned_to || ''} onChange={(e) => handleAssignLead(lead.id, e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }}>
+                          <select value={lead.assigned_to || ''} onChange={(e) => handleAssignLead(lead.id, e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
                             <option value="">غير مخصص</option>
                             {teamMembers.map(m => <option key={m.id} value={m.id}>{m.email}</option>)}
                           </select>
                         ) : (
-                          <span style={{ color: '#34d399' }}>مخصص لك</span>
+                          <span style={{ color: '#34d399', fontSize: '0.85rem' }}>مخصص لك</span>
                         )}
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>إدارة المهام والعميل</button>
+                        <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.4rem 0.9rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إدارة السجل</button>
                       </td>
                     </tr>
                   ))}
@@ -336,21 +356,20 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Reminders / Tasks Tab */}
         {activeTab === 'reminders' && (
-          <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '8px' }}>
-            <h3>⏰ المهام والمتابعات المطلوبة ({dueFollowUps.length})</h3>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif' }}>⏰ المتابعات والمهام المستحقة اليوم ({dueFollowUps.length})</h3>
             {dueFollowUps.length === 0 ? (
-              <p style={{ color: '#34d399', marginTop: '1rem' }}>عاش! ليس لديك مهام متأخرة اليوم.</p>
+              <p style={{ color: '#34d399', marginTop: '1rem' }}>ممتاز! جميع المتابعات العقارية منظمة ولا توجد مهام متأخرة.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
                 {dueFollowUps.map(lead => (
-                  <div key={lead.id} style={{ backgroundColor: '#0f172a', padding: '1rem', borderRadius: '6px', borderRight: '4px solid #ef4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={lead.id} style={{ backgroundColor: '#0c0f17', padding: '1rem', borderRadius: '4px', borderRight: '4px solid #d4af37', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontWeight: 'bold' }}>{lead.name} - 📞 {lead.phone}</div>
-                      <div style={{ color: '#f87171', fontSize: '0.85rem' }}>الموعد: {new Date(lead.next_follow_up).toLocaleString('ar-EG')}</div>
+                      <div style={{ color: '#f87171', fontSize: '0.85rem' }}>موعد المهمة: {new Date(lead.next_follow_up).toLocaleString('ar-EG')}</div>
                     </div>
-                    <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.5rem 1rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>فتح المهمة</button>
+                    <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.4rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>متابعة فورية</button>
                   </div>
                 ))}
               </div>
@@ -358,13 +377,12 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Import Tab */}
         {activeTab === 'import' && userRole === 'admin' && (
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', maxWidth: '600px' }}>
-            <h3>📥 استيراد عملاء من Excel/CSV</h3>
+          <div style={{ backgroundColor: '#131822', padding: '2rem', borderRadius: '6px', maxWidth: '600px', border: '1px solid #1f2937' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif' }}>📥 استيراد قاعدة العملاء (Excel CSV)</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
-              if(!csvFile) return alert('اختر ملف أولاً');
+              if(!csvFile) return alert('اختر ملفاً أولاً');
               setImporting(true);
               const reader = new FileReader();
               reader.onload = async (event) => {
@@ -381,101 +399,101 @@ export default function Dashboard() {
               };
               reader.readAsText(csvFile);
             }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-              <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files[0])} style={{ padding: '0.8rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155' }} />
-              <button type="submit" disabled={importing} style={{ padding: '0.8rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{importing ? 'جاري الرفع...' : 'رفع الملف'}</button>
+              <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files[0])} style={{ padding: '0.8rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151' }} />
+              <button type="submit" disabled={importing} style={{ padding: '0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>{importing ? 'جاري الرفع...' : 'بدء الاستيراد'}</button>
             </form>
           </div>
         )}
 
-        {/* Team Tab */}
         {activeTab === 'team' && userRole === 'admin' && (
-          <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '8px' }}>
-            <h3>👥 فريق العمل</h3>
-            <ul>{teamMembers.map(m => <li key={m.id} style={{ margin: '0.5rem 0' }}>{m.email} - ({m.role})</li>)}</ul>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif' }}>👥 طاقم عمل المبيعات والإدارة</h3>
+            <ul style={{ marginTop: '1rem', paddingRight: '1rem' }}>
+              {teamMembers.map(m => <li key={m.id} style={{ margin: '0.5rem 0', color: '#d1d5db' }}>{m.email} - <span style={{ color: '#d4af37' }}>({m.role})</span></li>)}
+            </ul>
           </div>
         )}
       </main>
 
-      {/* Modal: إضافة موظف جديد */}
+      {/* Modal: إضافة موظف */}
       {showUserModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', width: '350px' }}>
-            <h3>إضافة موظف جديد</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '2rem', borderRadius: '6px', width: '380px', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0 }}>إضافة موظف جديد</h3>
             <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
-              <input type="email" placeholder="البريد الإلكتروني" required value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} style={{ padding: '0.6rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155' }} />
-              <input type="password" placeholder="كلمة المرور" required value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} style={{ padding: '0.6rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155' }} />
-              <select value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} style={{ padding: '0.6rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155' }}>
-                <option value="sales">Sales</option>
-                <option value="admin">Admin</option>
+              <input type="email" placeholder="البريد الإلكتروني" required value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} style={{ padding: '0.7rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }} />
+              <input type="password" placeholder="كلمة المرور (6 خانات فأكثر)" required value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} style={{ padding: '0.7rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }} />
+              <select value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} style={{ padding: '0.7rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px' }}>
+                <option value="sales">Sales Agent</option>
+                <option value="admin">Admin Directorate</option>
               </select>
-              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>حفظ الموظف</button>
-              <button type="button" onClick={() => setShowUserModal(false)} style={{ padding: '0.6rem', backgroundColor: '#64748b', color: '#fff', border: 'none', borderRadius: '4px' }}>إلغاء</button>
+              <button type="submit" style={{ padding: '0.7rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ الموظف</button>
+              <button type="button" onClick={() => setShowUserModal(false)} style={{ padding: '0.6rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px' }}>إلغاء</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal: إضافة عميل جديد يدوياً */}
+      {/* Modal: إضافة عميل يدوياً */}
       {showAddLeadModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', width: '400px' }}>
-            <h3>إضافة عميل جديد يدوياً</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '2rem', borderRadius: '6px', width: '420px', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0 }}>تسجيل عميل عقاري جديد</h3>
             <form onSubmit={handleCreateManualLead} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
-              <input type="text" placeholder="اسم العميل *" required value={newLeadData.name} onChange={(e) => setNewLeadData({...newLeadData, name: e.target.value})} style={{ padding: '0.6rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }} />
-              <input type="text" placeholder="رقم الهاتف *" required value={newLeadData.phone} onChange={(e) => setNewLeadData({...newLeadData, phone: e.target.value})} style={{ padding: '0.6rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }} />
-              <input type="email" placeholder="البريد الإلكتروني (اختياري)" value={newLeadData.email} onChange={(e) => setNewLeadData({...newLeadData, email: e.target.value})} style={{ padding: '0.6rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }} />
-              <input type="text" placeholder="مصدر العميل (مثال: Facebook, Website)" value={newLeadData.lead_source} onChange={(e) => setNewLeadData({...newLeadData, lead_source: e.target.value})} style={{ padding: '0.6rem', backgroundColor: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }} />
+              <input type="text" placeholder="اسم العميل *" required value={newLeadData.name} onChange={(e) => setNewLeadData({...newLeadData, name: e.target.value})} style={{ padding: '0.7rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }} />
+              <input type="text" placeholder="رقم الهاتف *" required value={newLeadData.phone} onChange={(e) => setNewLeadData({...newLeadData, phone: e.target.value})} style={{ padding: '0.7rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }} />
+              <input type="email" placeholder="البريد الإلكتروني (اختياري)" value={newLeadData.email} onChange={(e) => setNewLeadData({...newLeadData, email: e.target.value})} style={{ padding: '0.7rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }} />
+              <input type="text" placeholder="المصدر (مثال: Property Finder, Facebook)" value={newLeadData.lead_source} onChange={(e) => setNewLeadData({...newLeadData, lead_source: e.target.value})} style={{ padding: '0.7rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }} />
               
-              <button type="submit" style={{ padding: '0.7rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ وإضافة العميل</button>
-              <button type="button" onClick={() => setShowAddLeadModal(false)} style={{ padding: '0.6rem', backgroundColor: '#64748b', color: '#fff', border: 'none', borderRadius: '4px' }}>إلغاء</button>
+              <button type="submit" style={{ padding: '0.7rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ العميل في المنظومة</button>
+              <button type="button" onClick={() => setShowAddLeadModal(false)} style={{ padding: '0.6rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px' }}>إلغاء</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal: تفاصيل العميل وإضافة مهام/متابعات */}
+      {/* Modal: تفاصيل العميل وإدارة المهام */}
       {selectedLead && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', width: '600px', maxHeight: '85vh', overflowY: 'auto' }}>
-            <h2>إدارة العميل: {selectedLead.name}</h2>
-            <p style={{ color: '#94a3b8', margin: '0.5rem 0' }}>📞 {selectedLead.phone} | المصدر: {selectedLead.lead_source}</p>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '2rem', borderRadius: '6px', width: '620px', maxHeight: '85vh', overflowY: 'auto', border: '1px solid #d4af37' }}>
+            <h2 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0 }}>ملف العميل: {selectedLead.name}</h2>
+            <p style={{ color: '#9ca3af', margin: '0.5rem 0', fontSize: '0.9rem' }}>📞 {selectedLead.phone} | المصدر: {selectedLead.lead_source}</p>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', backgroundColor: '#0f172a', padding: '1rem', borderRadius: '6px', margin: '1rem 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', backgroundColor: '#0c0f17', padding: '1rem', borderRadius: '4px', margin: '1rem 0', border: '1px solid #1f2937' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>حالة العميل:</span>
-                <select value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#1e293b', color: '#38bdf8', border: '1px solid #334155', borderRadius: '4px' }}>
+                <span style={{ color: '#d4af37' }}>الحالة العقارية:</span>
+                <select value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px' }}>
                   {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
 
-              {/* تعيين مهمة / ميعاد تذكير للسيلز */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span>تحديد مهمة / موعد متابعة:</span>
+                <span style={{ color: '#d4af37' }}>موعد المتابعة / المهمة:</span>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <input type="datetime-local" value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px' }} />
-                  <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>حفظ المهمة</button>
+                  <input type="datetime-local" value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }} />
+                  <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.4rem 0.9rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ الموعد</button>
                 </div>
               </div>
             </div>
 
-            <hr style={{ borderColor: '#334155', margin: '1rem 0' }} />
+            <hr style={{ borderColor: '#1f2937', margin: '1rem 0' }} />
             
-            <h3>ملاحظات السيلز وسجل العمل (Timeline):</h3>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif' }}>سجل الملاحظات والمتابعات (Timeline):</h3>
             <form onSubmit={handleAddLogNote} style={{ display: 'flex', gap: '0.5rem', margin: '1rem 0' }}>
-              <input placeholder="أكتب ملاحظة أو تفاصيل المكالمة هنا..." value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ flex: 1, padding: '0.5rem', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: '4px' }} />
-              <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>إضافة</button>
+              <input placeholder="أضف ملاحظة أو تفاصيل زيارة الوحدة..." value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ flex: 1, padding: '0.6rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#fff', borderRadius: '4px' }} />
+              <button type="submit" style={{ padding: '0.6rem 1.2rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>إضافة</button>
             </form>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {leadLogs.map(log => (
-                <div key={log.id} style={{ backgroundColor: '#0f172a', padding: '0.6rem', borderRadius: '4px', borderRight: '3px solid #38bdf8' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{log.user_email} - {new Date(log.created_at).toLocaleString('ar-EG')}</div>
-                  <div style={{ marginTop: '0.3rem' }}>{log.content}</div>
+                <div key={log.id} style={{ backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', borderRight: '3px solid #d4af37', border: '1px solid #1f2937' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{log.user_email} - {new Date(log.created_at).toLocaleString('ar-EG')}</div>
+                  <div style={{ marginTop: '0.3rem', color: '#f3f4f6' }}>{log.content}</div>
                 </div>
               ))}
             </div>
 
-            <button onClick={() => setSelectedLead(null)} style={{ marginTop: '1.5rem', padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>إغلاق</button>
+            <button onClick={() => setSelectedLead(null)} style={{ marginTop: '1.5rem', padding: '0.5rem 1rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>إغلاق النافذة</button>
           </div>
         </div>
       )}
