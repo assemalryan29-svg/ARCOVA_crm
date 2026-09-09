@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
+  const [audioEnabled, setAudioEnabled] = useState(false);
   
   // مرجع لتشغيل الصوت
   const audioRef = useRef(null);
@@ -39,7 +40,22 @@ export default function Dashboard() {
 
   const playNotificationSound = () => {
     if (audioRef.current) {
-      audioRef.current.play().catch(e => console.log("Audio play blocked:", e));
+      audioRef.current.play().then(() => {
+        setAudioEnabled(true);
+      }).catch(e => {
+        console.log("Audio play blocked by browser:", e);
+      });
+    }
+  };
+
+  const enableAudioAndTest = () => {
+    if (audioRef.current) {
+      audioRef.current.play().then(() => {
+        setAudioEnabled(true);
+        alert('تم تفعيل الصوت بنجاح! ستعمل نغمة التنبيه تلقائياً عند وجود متابعات.');
+      }).catch(e => {
+        alert('الرجاء النقر مرة أخرى لتفعيل الصوت.');
+      });
     }
   };
 
@@ -250,7 +266,6 @@ export default function Dashboard() {
     return new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr;
   });
 
-  // حساب الإحصائيات السريعة
   const totalLeadsCount = leads.length;
   const interestedCount = leads.filter(l => l.status === 'Interested').length;
   const closedWonCount = leads.filter(l => l.status === 'Closed Won').length;
@@ -274,6 +289,11 @@ export default function Dashboard() {
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* زر تفعيل الصوت */}
+          <button onClick={enableAudioAndTest} style={{ padding: '0.4rem 0.8rem', backgroundColor: audioEnabled ? '#065f46' : '#991b1b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+            {audioEnabled ? '🔔 التنبيه الصوتي مفعل' : '🔕 تفعيل الصوت (اضغط هنا)'}
+          </button>
+
           <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{currentUser?.email}</span>
           {userRole === 'admin' && (
             <button onClick={() => setShowUserModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>+ موظف</button>
@@ -453,7 +473,7 @@ export default function Dashboard() {
       {/* Modal: تفاصيل الفيدباك */}
       {selectedLead && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '450px', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #d4af37' }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '450px', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #d4af37' مكتوب }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>{selectedLead.name}</h3>
             <p style={{ color: '#9ca3af', margin: '0.3rem 0', fontSize: '0.8rem' }}>{selectedLead.phone}</p>
             
@@ -498,4 +518,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
