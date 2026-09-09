@@ -147,34 +147,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleExportToExcel = () => {
-    if (leads.length === 0) {
-      alert('لا توجد بيانات عملاء لتصديرها');
-      return;
-    }
-
-    const headers = ['Name', 'Phone', 'Email', 'Source', 'Status', 'Next Follow Up'];
-    const rows = leads.map(l => [
-      `"${l.name || ''}"`,
-      `"${l.phone || ''}"`,
-      `"${l.email || ''}"`,
-      `"${l.lead_source || ''}"`,
-      `"${l.status || ''}"`,
-      `"${l.next_follow_up ? new Date(l.next_follow_up).toLocaleString('ar-EG') : ''}"`
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Arcova_Leads_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
+  // معالجة واستيراد ملف الـ CSV
   const handleImportCsv = async (e) => {
     e.preventDefault();
     if (!csvFile) {
@@ -190,14 +163,15 @@ export default function Dashboard() {
         const lines = text.split('\n');
         const rows = lines.map(line => line.split(','));
 
+        // تخطي رأس الملف والبدء بالبيانات (يفترض الترتيب: name, phone, email, lead_source)
         let insertedCount = 0;
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
           if (row.length >= 2 && row[1]) {
-            const name = row[0]?.replace(/"/g, '')?.trim() || 'عميل مستورد';
-            const phone = row[1]?.replace(/"/g, '')?.trim();
-            const email = row[2]?.replace(/"/g, '')?.trim() || '';
-            const lead_source = row[3]?.replace(/"/g, '')?.trim() || 'Excel Import';
+            const name = row[0]?.trim() || 'عميل مستورد';
+            const phone = row[1]?.trim();
+            const email = row[2]?.trim() || '';
+            const lead_source = row[3]?.trim() || 'Excel Import';
 
             if (phone) {
               await supabase.from('leads').insert([{
@@ -264,10 +238,10 @@ export default function Dashboard() {
         <button onClick={() => setActiveTab('list')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'list' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📑 العملاء ({leads.length})</button>
         <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'reminders' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>⏰ التذكيرات ({dueFollowUps.length})</button>
         {userRole === 'admin' && (
-          <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel</button>
-        )}
-        {userRole === 'admin' && (
-          <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
+          <>
+            <button onClick={() => setActiveTab('import')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'import' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 استيراد Excel/CSV</button>
+            <button onClick={() => setActiveTab('team')} style={{ padding: '0.6rem 1.2rem', backgroundColor: activeTab === 'team' ? '#0284c7' : 'transparent', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>👥 فريق العمل ({teamMembers.length})</button>
+          </>
         )}
       </div>
 
@@ -277,13 +251,7 @@ export default function Dashboard() {
         {/* Leads List Tab */}
         {activeTab === 'list' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '400px', padding: '0.6rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }} />
-              
-              <button onClick={handleExportToExcel} style={{ padding: '0.6rem 1.2rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                📊 تصدير العملاء لملف Excel
-              </button>
-            </div>
+            <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '400px', padding: '0.6rem', marginBottom: '1rem', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '6px' }} />
 
             <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
@@ -364,7 +332,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* CSV Import Tab */}
+        {/* CSV Import Tab (Admin Only) */}
         {activeTab === 'import' && userRole === 'admin' && (
           <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '8px', maxWidth: '600px' }}>
             <h3>📥 استيراد بيانات العملاء (CSV)</h3>
@@ -483,3 +451,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
