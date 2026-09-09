@@ -1,4 +1,4 @@
-hereimport { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
 export default function Dashboard() {
@@ -13,7 +13,7 @@ export default function Dashboard() {
   
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false); // Modal الاستيراد
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [newNote, setNewNote] = useState('');
@@ -178,7 +178,6 @@ export default function Dashboard() {
     }
   };
 
-  // وظيفة استيراد ملف الـ CSV
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -190,12 +189,10 @@ export default function Dashboard() {
         const lines = text.split('\n');
         let importedCount = 0;
 
-        // تخطي السطر الأول (العناوين)
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
 
-          // تقسيم الأعمدة (بافتراض مفصولة بفاصلة ومحاطة بعلامات تنصيص)
           const cols = line.split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
           const name = cols[0];
           const phone = cols[1];
@@ -546,7 +543,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* نافذة الاستيراد */}
       {showImportModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '380px', border: '1px solid #34d399' }}>
@@ -652,3 +648,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
