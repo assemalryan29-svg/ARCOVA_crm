@@ -22,8 +22,8 @@ export default function Dashboard() {
   const [followUpInput, setFollowUpInput] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
   
-  // مرجع لتشغيل الصوت
-  const audioRef = useRef(null);
+  // مرجع لنظام الصوت البرمجي (Web Audio API)
+  const audioCtxRef = useRef(null);
 
   const statusOptions = [
     { value: 'New Lead', label: '📥 عميل جديد' },
@@ -38,24 +38,56 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  // دالة لتوليد نغمة تنبيه برمجياً (لا تحتاج لروابط خارجية وتعمل فوراً)
   const playNotificationSound = () => {
-    if (audioRef.current) {
-      audioRef.current.play().then(() => {
-        setAudioEnabled(true);
-      }).catch(e => {
-        console.log("Audio play blocked by browser:", e);
-      });
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const ctx = audioCtxRef.current || new AudioContext();
+      audioCtxRef.current = ctx;
+
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      // عمل نغمتين ترحيبية (بيب بيب)
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now); // تردد النغمة (A5)
+      osc.frequency.setValueAtTime(1100, now + 0.15);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } catch (e) {
+      console.log("Audio context error:", e);
     }
   };
 
   const enableAudioAndTest = () => {
-    if (audioRef.current) {
-      audioRef.current.play().then(() => {
-        setAudioEnabled(true);
-        alert('تم تفعيل الصوت بنجاح! ستعمل نغمة التنبيه تلقائياً عند وجود متابعات.');
-      }).catch(e => {
-        alert('الرجاء النقر مرة أخرى لتفعيل الصوت.');
-      });
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      setAudioEnabled(true);
+      playNotificationSound();
+      alert('تم تفعيل التنبيه الصوتي بنجاح! ستسمع نغمة التنبيه الآن وفي حالة وجود متابعات مستحقة.');
+    } catch (e) {
+      alert('الرجاء النقر مرة أخرى لتفعيل الصوت.');
     }
   };
 
@@ -85,10 +117,9 @@ export default function Dashboard() {
       if (leadsData) {
         setLeads(leadsData || []);
         
-        // التحقق من وجود متابعات مستحقة لتشغيل التنبيه الصوتي
         const todayStr = new Date().toISOString().slice(0, 10);
         const hasDue = leadsData.some(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
-        if (hasDue) {
+        if (hasDue && audioEnabled) {
           playNotificationSound();
         }
       }
@@ -274,11 +305,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
-      
-      {/* عنصر الصوت للتنبيه */}
-      <audio ref={audioRef} preload="auto">
-        <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_12d22a8435.mp3?filename=notification-sound-7062.mp3" type="audio/mpeg" />
-      </audio>
 
       <header style={{ backgroundColor: '#131822', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #d4af37' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -290,7 +316,7 @@ export default function Dashboard() {
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {/* زر تفعيل الصوت */}
-          <button onClick={enableAudioAndTest} style={{ padding: '0.4rem 0.8rem', backgroundColor: audioEnabled ? '#065f46' : '#991b1b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+          <button onClick={enableAudioAndTest} style={{ padding: '0.4rem 0.8rem', backgroundColor: audioEnabled ? '#065f46' : '#991b1b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
             {audioEnabled ? '🔔 التنبيه الصوتي مفعل' : '🔕 تفعيل الصوت (اضغط هنا)'}
           </button>
 
@@ -316,7 +342,6 @@ export default function Dashboard() {
 
       <main style={{ padding: '1.5rem' }}>
         
-        {/* قسم الإحصائيات السريعة */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #d4af37', padding: '1rem', borderRadius: '6px' }}>
             <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>إجمالي العملاء</div>
@@ -423,7 +448,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Modal: إضافة موظف */}
       {showUserModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
@@ -442,7 +466,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal: إضافة عميل وإسناده */}
       {showAddLeadModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
@@ -470,7 +493,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal: تفاصيل الفيدباك */}
       {selectedLead && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '450px', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #d4af37' }}>
@@ -498,7 +520,7 @@ export default function Dashboard() {
             
             <form onSubmit={handleAddLogNote} style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.8rem' }}>
               <input placeholder="اكتب ملاحظة أو فيدباك..." value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ flex: 1, padding: '0.5rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.8rem' }} />
-              <button type="submit" style={{ padding: '0.5rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>إضافة</button>
+              <button type="submit" style={{ padding: '0.5rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إضافة</button>
             </form>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '150px', overflowY: 'auto' }}>
