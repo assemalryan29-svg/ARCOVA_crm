@@ -135,7 +135,6 @@ export default function Dashboard() {
       const { data: leadsData } = await leadsQuery;
       if (leadsData) setLeads(leadsData || []);
 
-      // جلب المشاريع والوحدات
       const { data: projData } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
       if (projData) setProjects(projData || []);
 
@@ -660,7 +659,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Modal: Add Project */}
       {showProjectModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
@@ -676,7 +674,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal: Add Unit */}
       {showUnitModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '380px', border: '1px solid #d4af37' }}>
@@ -713,7 +710,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* باقي Modals القديمة (Import, User, Add Lead, Lead Details) */}
       {showImportModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '380px', border: '1px solid #34d399' }}>
@@ -796,4 +792,4 @@ export default function Dashboard() {
 
             <form onSubmit={handleAddLogNote} style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.8rem' }}>
               <input placeholder="اكتب ملاحظة أو فيدباك..." value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ flex: 1, padding: '0.5rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.8rem' }} />
-              <button type="submit" style={{ padding: '0.5re
+              <button type="submit" style={{ padding: '0.5rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إضافة</butt
