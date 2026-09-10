@@ -9,16 +9,25 @@ export default function Dashboard() {
   
   const [leads, setLeads] = useState([]);
   const [leadLogs, setLeadLogs] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [units, setUnits] = useState([]);
+  
   const [activeTab, setActiveTab] = useState('list');
   
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showUnitModal, setShowUnitModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [newNote, setNewNote] = useState('');
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'sales' });
   const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
+  
+  const [newProject, setNewProject] = useState({ name: '', location: '', description: '' });
+  const [newUnit, setNewUnit] = useState({ project_id: '', unit_number: '', type: 'شقة', price: '', area: '', status: 'متاح' });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
@@ -124,10 +133,15 @@ export default function Dashboard() {
         leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
       }
       const { data: leadsData } = await leadsQuery;
-      
-      if (leadsData) {
-        setLeads(leadsData || []);
-      }
+      if (leadsData) setLeads(leadsData || []);
+
+      // جلب المشاريع والوحدات
+      const { data: projData } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+      if (projData) setProjects(projData || []);
+
+      const { data: unitData } = await supabase.from('units').select('*, projects(name)').order('created_at', { ascending: false });
+      if (unitData) setUnits(unitData || []);
+
     } catch (err) {
       console.log('Error fetching data:', err);
     } finally {
@@ -168,13 +182,43 @@ export default function Dashboard() {
       if (error) {
         alert('خطأ في الإضافة: ' + error.message);
       } else {
-        alert('تم إضافة العميل وإسناده للموظف بنجاح!');
+        alert('تم إضافة العميل وإسناده بنجاح!');
         setShowAddLeadModal(false);
         setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
         fetchData();
       }
     } catch (err) {
       alert('تعذر الاتصال بالخادم.');
+    }
+  };
+
+  const handleCreateProject = async (e) => {
+    e.preventDefault();
+    if (!newProject.name) { alert('أدخل اسم المشروع'); return; }
+
+    const { error } = await supabase.from('projects').insert([newProject]);
+    if (error) {
+      alert('خطأ: ' + error.message);
+    } else {
+      alert('تم إنشاء المشروع بنجاح!');
+      setShowProjectModal(false);
+      setNewProject({ name: '', location: '', description: '' });
+      fetchData();
+    }
+  };
+
+  const handleCreateUnit = async (e) => {
+    e.preventDefault();
+    if (!newUnit.project_id || !newUnit.unit_number) { alert('اختر المشروع ورقم الوحدة'); return; }
+
+    const { error } = await supabase.from('units').insert([newUnit]);
+    if (error) {
+      alert('خطأ: ' + error.message);
+    } else {
+      alert('تم إضافة الوحدة العقارية بنجاح!');
+      setShowUnitModal(false);
+      setNewUnit({ project_id: '', unit_number: '', type: 'شقة', price: '', area: '', status: 'متاح' });
+      fetchData();
     }
   };
 
@@ -216,7 +260,7 @@ export default function Dashboard() {
         setShowImportModal(false);
         fetchData();
       } catch (err) {
-        alert('حدث خطأ أثناء قراءة الملف، تأكد من أنه بصيغة CSV صحيحة.');
+        alert('حدث خطأ أثناء قراءة الملف.');
       }
     };
     reader.readAsText(file);
@@ -380,10 +424,13 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => setActiveTab('list')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'list' ? '#d4af37' : 'transparent', color: activeTab === 'list' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>العملاء ({leads.length})</button>
           <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'reminders' ? '#d4af37' : 'transparent', color: activeTab === 'reminders' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>المتابعات ({dueFollowUps.length})</button>
+          <button onClick={() => setActiveTab('projects')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'projects' ? '#d4af37' : 'transparent', color: activeTab === 'projects' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>المشاريع ({projects.length})</button>
+          <button onClick={() => setActiveTab('units')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'units' ? '#d4af37' : 'transparent', color: activeTab === 'units' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>الوحدات ({units.length})</button>
+          
           {userRole === 'admin' && (
             <>
               <button onClick={() => setActiveTab('team')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>فريق العمل</button>
-              <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات (Leaderboard)</button>
+              <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات</button>
             </>
           )}
         </div>
@@ -476,6 +523,76 @@ export default function Dashboard() {
           </div>
         )}
 
+        {activeTab === 'projects' && (
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>مشاريع الشركة العقارية</h3>
+              {userRole === 'admin' && (
+                <button onClick={() => setShowProjectModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ إضافة مشروع جديد</button>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+              {projects.map(proj => (
+                <div key={proj.id} style={{ backgroundColor: '#0c0f17', padding: '1.2rem', borderRadius: '6px', border: '1px solid #1f2937', borderTop: '3px solid #d4af37' }}>
+                  <div style={{ fontWeight: 'bold', color: '#f3f4f6', fontSize: '1rem', marginBottom: '0.3rem' }}>{proj.name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#d4af37', marginBottom: '0.6rem' }}>📍 {proj.location || 'غير محدد'}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{proj.description || 'لا توجد تفاصيل إضافية'}</div>
+                </div>
+              ))}
+              {projects.length === 0 && <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>لا توجد مشاريع مضافة حالياً.</p>}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'units' && (
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة الوحدات العقارية</h3>
+              {userRole === 'admin' && (
+                <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ إضافة وحدة جديدة</button>
+              )}
+            </div>
+
+            <div style={{ backgroundColor: '#0c0f17', borderRadius: '6px', overflowX: 'auto', border: '1px solid #1f2937' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#131822', color: '#d4af37', borderBottom: '1px solid #1f2937' }}>
+                    <th style={{ padding: '0.8rem' }}>المشروع</th>
+                    <th style={{ padding: '0.8rem' }}>رقم الوحدة</th>
+                    <th style={{ padding: '0.8rem' }}>النوع</th>
+                    <th style={{ padding: '0.8rem' }}>المساحة (م²)</th>
+                    <th style={{ padding: '0.8rem' }}>السعر</th>
+                    <th style={{ padding: '0.8rem' }}>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {units.map(unit => (
+                    <tr key={unit.id} style={{ borderBottom: '1px solid #1f2937' }}>
+                      <td style={{ padding: '0.8rem', fontWeight: 'bold', color: '#f3f4f6' }}>{unit.projects?.name || 'مشروع محذوف'}</td>
+                      <td style={{ padding: '0.8rem', color: '#d4af37' }}>{unit.unit_number}</td>
+                      <td style={{ padding: '0.8rem', color: '#9ca3af' }}>{unit.type}</td>
+                      <td style={{ padding: '0.8rem', color: '#9ca3af' }}>{unit.area ? `${unit.area} م²` : '-'}</td>
+                      <td style={{ padding: '0.8rem', color: '#34d399' }}>{unit.price ? `${Number(unit.price).toLocaleString()} جنية` : '-'}</td>
+                      <td style={{ padding: '0.8rem' }}>
+                        <span style={{ 
+                          padding: '0.2rem 0.6rem', 
+                          borderRadius: '4px', 
+                          fontSize: '0.75rem',
+                          backgroundColor: unit.status === 'متاح' ? '#065f46' : unit.status === 'محجوز' ? '#9a3412' : '#991b1b',
+                          color: '#fff'
+                        }}>
+                          {unit.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'reminders' && (
           <div style={{ backgroundColor: '#131822', padding: '1.2rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem' }}>المتابعات المستحقة ({dueFollowUps.length})</h3>
@@ -543,14 +660,65 @@ export default function Dashboard() {
         )}
       </main>
 
+      {/* Modal: Add Project */}
+      {showProjectModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة مشروع جديد</h3>
+            <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
+              <input type="text" placeholder="اسم المشروع *" required value={newProject.name} onChange={(e) => setNewProject({...newProject, name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="الموقع (المنطقة / المدینة)" value={newProject.location} onChange={(e) => setNewProject({...newProject, location: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <textarea placeholder="وصف المشروع" value={newProject.description} onChange={(e) => setNewProject({...newProject, description: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem', minHeight: '60px' }} />
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ المشروع</button>
+              <button type="button" onClick={() => setShowProjectModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Unit */}
+      {showUnitModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '380px', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة وحدة عقارية</h3>
+            <form onSubmit={handleCreateUnit} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
+              <select required value={newUnit.project_id} onChange={(e) => setNewUnit({...newUnit, project_id: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
+                <option value="">-- اختر المشروع * --</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+
+              <input type="text" placeholder="رقم أو كود الوحدة *" required value={newUnit.unit_number} onChange={(e) => setNewUnit({...newUnit, unit_number: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              
+              <select value={newUnit.type} onChange={(e) => setNewUnit({...newUnit, type: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
+                <option value="شقة">شقة</option>
+                <option value="فيلا">فيلا</option>
+                <option value="تاون هاوس">تاون هاوس</option>
+                <option value="تجاري/مكتب">تجاري / مكتب</option>
+              </select>
+
+              <input type="number" placeholder="المساحة (م²)" value={newUnit.area} onChange={(e) => setNewUnit({...newUnit, area: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              
+              <input type="number" placeholder="السعر" value={newUnit.price} onChange={(e) => setNewUnit({...newUnit, price: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+
+              <select value={newUnit.status} onChange={(e) => setNewUnit({...newUnit, status: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
+                <option value="متاح">متاح</option>
+                <option value="محجوز">محجوز</option>
+                <option value="مباع">مباع</option>
+              </select>
+
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ الوحدة</button>
+              <button type="button" onClick={() => setShowUnitModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* باقي Modals القديمة (Import, User, Add Lead, Lead Details) */}
       {showImportModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '380px', border: '1px solid #34d399' }}>
             <h3 style={{ color: '#34d399', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>استيراد عملاء من ملف CSV</h3>
-            <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '1rem' }}>الملف يجب أن يكون بصيغة CSV ويحتوي على الأعمدة بترتيب: (Name, Phone, Email, Source)</p>
-            
             <input type="file" accept=".csv" onChange={handleFileUpload} style={{ marginBottom: '1rem', color: '#fff', fontSize: '0.8rem', width: '100%' }} />
-
             <button type="button" onClick={() => setShowImportModal(false)} style={{ width: '100%', padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>إغلاق</button>
           </div>
         </div>
@@ -628,24 +796,4 @@ export default function Dashboard() {
 
             <form onSubmit={handleAddLogNote} style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.8rem' }}>
               <input placeholder="اكتب ملاحظة أو فيدباك..." value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ flex: 1, padding: '0.5rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.8rem' }} />
-              <button type="submit" style={{ padding: '0.5rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إضافة</button>
-            </form>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '150px', overflowY: 'auto' }}>
-              {leadLogs.map(log => (
-                <div key={log.id} style={{ backgroundColor: '#0c0f17', padding: '0.6rem', borderRadius: '4px', borderRight: '2px solid #d4af37', border: '1px solid #1f2937', fontSize: '0.8rem' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{log.user_email}</div>
-                  <div style={{ marginTop: '0.2rem', color: '#f3f4f6' }}>{log.content}</div>
-                </div>
-              ))}
-            </div>
-
-            <button onClick={() => setSelectedLead(null)} style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>إغلاق</button>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
+              <button type="submit" style={{ padding: '0.5re
