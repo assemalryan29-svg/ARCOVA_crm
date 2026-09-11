@@ -683,9 +683,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {selectedLead && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '450px', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #d4af37' }}>
-            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>{selectedLead.name}</h3>
-            <p style={{ color: '#9ca3af', margin: '0.3rem 0', fontSize: '0.8rem' }}>{selectedLead.phone}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937', 
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '150px', overflowY: 'auto' }}>
+              {leadLogs.map(log => (
+                <div key={log.id} style={{ backgroundColor: '#0c0f17', padding: '0.6rem', borderRadius: '4px', borderRight: '2px solid #d4af37', border: '1px solid #1f2937', fontSize: '0.8rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{log.user_email}</div>
+                  <div style={{ marginTop: '0.2rem', color: '#f3f4f6' }}>{log.content}</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setSelectedLead(null)} style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', backgroundColor: '#374151', color: '#fff', border: '1px solid #374151', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>إغلاق</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
