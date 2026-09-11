@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [leadLogs, setLeadLogs] = useState([]);
   const [projects, setProjects] = useState([]);
   const [units, setUnits] = useState([]);
+  const [tasks, setTasks] = useState([]); // جدول المهام الجديد
   
   const [activeTab, setActiveTab] = useState('list');
   
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false); // مودال إضافة مهمة جديدة
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [newNote, setNewNote] = useState('');
@@ -26,6 +28,7 @@ export default function Dashboard() {
   const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
   const [newProjectData, setNewProjectData] = useState({ name: '', location: '', description: '' });
   const [newUnitData, setNewUnitData] = useState({ project_id: '', unit_number: '', type: 'شقة', area: '', price: '', status: 'Available' });
+  const [newTaskData, setNewTaskData] = useState({ title: '', description: '', due_date: '', assigned_to: '' }); // بيانات المهمة الجديدة
   
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
@@ -141,6 +144,14 @@ export default function Dashboard() {
       const { data: unitData } = await supabase.from('units').select('*, projects(name)').order('created_at', { ascending: false });
       if (unitData) setUnits(unitData || []);
 
+      // جلب المهام (Tasks) من قاعدة البيانات
+      let tasksQuery = supabase.from('tasks').select('*').order('created_at', { ascending: false });
+      if (role !== 'admin') {
+        tasksQuery = tasksQuery.eq('assigned_to', session.user.id);
+      }
+      const { data: tasksData } = await tasksQuery;
+      if (tasksData) setTasks(tasksData || []);
+
     } catch (err) {
       console.log('Error fetching data:', err);
     } finally {
@@ -221,6 +232,36 @@ export default function Dashboard() {
       alert('تم إضافة الوحدة بنجاح');
     } else {
       alert('خطأ: ' + error.message);
+    }
+  };
+
+  // وظيفة حفظ مهمة جديدة في جدول tasks
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+    if (!newTaskData.title) {
+      alert('الرجاء إدخال عنوان المهمة');
+      return;
+    }
+    try {
+      const assignedTarget = userRole === 'admin' ? (newTaskData.assigned_to || null) : currentUser.id;
+      const { error } = await supabase.from('tasks').insert([{
+        title: newTaskData.title,
+        description: newTaskData.description || '',
+        due_date: newTaskData.due_date || null,
+        assigned_to: assignedTarget,
+        status: 'Pending'
+      }]);
+
+      if (error) {
+        alert('خطأ في إضافة المهمة: ' + error.message);
+      } else {
+        setShowTaskModal(false);
+        setNewTaskData({ title: '', description: '', due_date: '', assigned_to: '' });
+        fetchData();
+        alert('تم إضافة المهمة بنجاح');
+      }
+    } catch (err) {
+      alert('تعذر حفظ المهمة.');
     }
   };
 
@@ -433,6 +474,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => setActiveTab('list')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'list' ? '#d4af37' : 'transparent', color: activeTab === 'list' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>العملاء ({leads.length})</button>
           <button onClick={() => setActiveTab('reminders')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'reminders' ? '#d4af37' : 'transparent', color: activeTab === 'reminders' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>المتابعات ({dueFollowUps.length})</button>
+          <button onClick={() => setActiveTab('tasks')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'tasks' ? '#d4af37' : 'transparent', color: activeTab === 'tasks' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📋 المهام ({tasks.length})</button>
           <button onClick={() => setActiveTab('projects')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'projects' ? '#d4af37' : 'transparent', color: activeTab === 'projects' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏢 المشاريع والوحدات</button>
           {userRole === 'admin' && (
             <>
@@ -524,6 +566,50 @@ export default function Dashboard() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* قسم المهام (Tasks) الجديد */}
+        {activeTab === 'tasks' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>📋 إدارة المهام الإدارية</h3>
+              <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مهمة</button>
+            </div>
+
+            <div style={{ backgroundColor: '#131822', borderRadius: '6px', overflowX: 'auto', border: '1px solid #1f2937' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#0c0f17', color: '#d4af37', borderBottom: '1px solid #1f2937' }}>
+                    <th style={{ padding: '0.8rem' }}>عنوان المهمة والتفاصيل</th>
+                    <th style={{ padding: '0.8rem' }}>الموعد النهائي</th>
+                    <th style={{ padding: '0.8rem' }}>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" style={{ padding: '1.5rem', textAlign: 'center', color: '#9ca3af' }}>لا توجد مهام مسجلة حالياً.</td>
+                    </tr>
+                  ) : (
+                    tasks.map(task => (
+                      <tr key={task.id} style={{ borderBottom: '1px solid #1f2937' }}>
+                        <td style={{ padding: '0.8rem' }}>
+                          <div style={{ fontWeight: 'bold', color: '#f3f4f6' }}>{task.title}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.2rem' }}>{task.description || 'لا توجد تفاصيل إضافية'}</div>
+                        </td>
+                        <td style={{ padding: '0.8rem', color: task.due_date ? '#f59e0b' : '#6b7280', fontSize: '0.8rem' }}>
+                          {task.due_date ? new Date(task.due_date).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'غير محدد'}
+                        </td>
+                        <td style={{ padding: '0.8rem', color: '#34d399', fontSize: '0.8rem' }}>
+                          {task.status || 'Pending'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -655,6 +741,37 @@ export default function Dashboard() {
         )}
       </main>
 
+      {/* Modal إضافة مهمة جديدة */}
+      {showTaskModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة مهمة إدارية جديدة</h3>
+            <form onSubmit={handleCreateTask} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
+              <input type="text" placeholder="عنوان المهمة *" required value={newTaskData.title} onChange={(e) => setNewTaskData({...newTaskData, title: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <textarea placeholder="وصف المهمة" value={newTaskData.description} onChange={(e) => setNewTaskData({...newTaskData, description: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem', minHeight: '60px' }} />
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <label style={{ fontSize: '0.75rem', color: '#d4af37' }}>الموعد النهائي:</label>
+                <input type="datetime-local" value={newTaskData.due_date} onChange={(e) => setNewTaskData({...newTaskData, due_date: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              </div>
+
+              {userRole === 'admin' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                  <label style={{ fontSize: '0.75rem', color: '#d4af37' }}>إسناد لموظف:</label>
+                  <select value={newTaskData.assigned_to} onChange={(e) => setNewTaskData({...newTaskData, assigned_to: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
+                    <option value="">-- اختر الموظف --</option>
+                    {teamMembers.map(m => <option key={m.id} value={m.id}>{m.email}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ المهمة</button>
+              <button type="button" onClick={() => setShowTaskModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal إضافة مشروع */}
       {showProjectModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
@@ -693,7 +810,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* باقي نوافذ الإدخال والمودالز (Import, User, Add Lead, Lead Details) */}
       {showImportModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '380px', border: '1px solid #34d399' }}>
@@ -715,84 +831,4 @@ export default function Dashboard() {
                 <option value="sales">Sales Agent</option>
                 <option value="admin">Admin Directorate</option>
               </select>
-              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
-              <button type="button" onClick={() => setShowUserModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showAddLeadModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
-            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>تسجيل عميل جديد</h3>
-            <form onSubmit={handleCreateManualLead} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
-              <input type="text" placeholder="اسم العميل *" required value={newLeadData.name} onChange={(e) => setNewLeadData({...newLeadData, name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <input type="text" placeholder="رقم الهاتف *" required value={newLeadData.phone} onChange={(e) => setNewLeadData({...newLeadData, phone: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <input type="email" placeholder="البريد الإلكتروني" value={newLeadData.email} onChange={(e) => setNewLeadData({...newLeadData, email: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <input type="text" placeholder="المصدر" value={newLeadData.lead_source} onChange={(e) => setNewLeadData({...newLeadData, lead_source: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
-              
-              {userRole === 'admin' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                  <label style={{ fontSize: '0.75rem', color: '#d4af37' }}>إسناد لموظف Sales:</label>
-                  <select value={newLeadData.assigned_to} onChange={(e) => setNewLeadData({...newLeadData, assigned_to: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
-                    <option value="">-- اختر الموظف --</option>
-                    {teamMembers.map(m => <option key={m.id} value={m.id}>{m.email}</option>)}
-                  </select>
-                </div>
-              )}
-
-              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ وإسناد</button>
-              <button type="button" onClick={() => setShowAddLeadModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {selectedLead && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
-          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '450px', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #d4af37' }}>
-            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>{selectedLead.name}</h3>
-            <p style={{ color: '#9ca3af', margin: '0.3rem 0', fontSize: '0.8rem' }}>{selectedLead.phone}</p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937', fontSize: '0.85rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#d4af37' }}>الحالة:</span>
-                <select value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
-                  {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <span style={{ color: '#d4af37', fontSize: '0.8rem' }}>موعد المتابعة:</span>
-                <div style={{ display: 'flex', gap: '0.3rem' }}>
-                  <input type="datetime-local" value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ flex: 1, padding: '0.3rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
-                  <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>حفظ</button>
-                </div>
-              </div>
-            </div>
-
-            <h4 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '0.9rem', marginBottom: '0.5rem' }}>سجل الفيدباك:</h4>
-
-            <form onSubmit={handleAddLogNote} style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.8rem' }}>
-              <input placeholder="اكتب ملاحظة أو فيدباك..." value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ flex: 1, padding: '0.5rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.8rem' }} />
-              <button type="submit" style={{ padding: '0.5rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إضافة</button>
-            </form>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '150px', overflowY: 'auto' }}>
-              {leadLogs.map(log => (
-                <div key={log.id} style={{ backgroundColor: '#0c0f17', padding: '0.6rem', borderRadius: '4px', borderRight: '2px solid #d4af37', border: '1px solid #1f2937', fontSize: '0.8rem' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{log.user_email}</div>
-                  <div style={{ marginTop: '0.2rem', color: '#f3f4f6' }}>{log.content}</div>
-                </div>
-              ))}
-            </div>
-
-            <button onClick={() => setSelectedLead(null)} style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>إغلاق</button>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border:
