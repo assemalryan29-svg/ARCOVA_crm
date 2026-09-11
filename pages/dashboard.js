@@ -853,7 +853,63 @@ export default function Dashboard() {
               <input type="text" placeholder="النوع (شقة، فيلا، مكتب...)" value={newUnitData.type} onChange={(e) => setNewUnitData({...newUnitData, type: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="number" placeholder="المساحة (م²)" value={newUnitData.area} onChange={(e) => setNewUnitData({...newUnitData, area: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="number" placeholder="السعر" value={newUnitData.price} onChange={(e) => setNewUnitData({...newUnitData, price: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
-                  </div>
+              <input
+                type="number"
+                placeholder="السعر"
+                value={newUnitData.price}
+                onChange={(e) =>
+                  setNewUnitData({
+                    ...newUnitData,
+                    price: e.target.value
+                  })
+                }
+                style={{
+                  padding: '0.5rem',
+                  backgroundColor: '#0c0f17',
+                  color: '#fff',
+                  border: '1px solid #374151',
+                  borderRadius: '4px',
+                  fontSize: '0.85rem'
+                }}
+              />
+
+              <button
+                type="submit"
+                style={{
+                  padding: '0.6rem',
+                  backgroundColor: '#d4af37',
+                  color: '#0c0f17',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem'
+                }}
+              >
+                حفظ الوحدة
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowUnitModal(false)}
+                style={{
+                  padding: '0.5rem',
+                  backgroundColor: '#374151',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.85rem'
+                }}
+              >
+                إلغاء
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 }
-          
+
+export default Dashboard;
