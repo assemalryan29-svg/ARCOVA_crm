@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [leadLogs, setLeadLogs] = useState([]);
   const [projects, setProjects] = useState([]);
   const [units, setUnits] = useState([]);
-  const [tasks, setTasks] = useState([]); // جدول المهام الجديد
+  const [tasks, setTasks] = useState([]);
   
   const [activeTab, setActiveTab] = useState('list');
   
@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
-  const [showTaskModal, setShowTaskModal] = useState(false); // مودال إضافة مهمة جديدة
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [newNote, setNewNote] = useState('');
@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
   const [newProjectData, setNewProjectData] = useState({ name: '', location: '', description: '' });
   const [newUnitData, setNewUnitData] = useState({ project_id: '', unit_number: '', type: 'شقة', area: '', price: '', status: 'Available' });
-  const [newTaskData, setNewTaskData] = useState({ title: '', description: '', due_date: '', assigned_to: '' }); // بيانات المهمة الجديدة
+  const [newTaskData, setNewTaskData] = useState({ title: '', description: '', due_date: '', assigned_to: '' });
   
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
@@ -51,15 +51,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!audioEnabled) return;
-
     const interval = setInterval(() => {
       const todayStr = new Date().toISOString().slice(0, 10);
       const hasDue = leads.some(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
-      if (hasDue) {
-        playNotificationSound();
-      }
+      if (hasDue) playNotificationSound();
     }, 60000);
-
     return () => clearInterval(interval);
   }, [audioEnabled, leads]);
 
@@ -67,32 +63,23 @@ export default function Dashboard() {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
-      
       const ctx = audioCtxRef.current || new AudioContext();
       audioCtxRef.current = ctx;
-
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
+      if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-
       osc.type = 'sine';
       osc.frequency.setValueAtTime(587.33, now);
       osc.frequency.setValueAtTime(880, now + 0.15);
-
       gain.gain.setValueAtTime(0.3, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-
       osc.connect(gain);
       gain.connect(ctx.destination);
-
       osc.start(now);
       osc.stop(now + 0.5);
     } catch (e) {
-      console.log("Audio play error:", e);
+      console.log(e);
     }
   };
 
@@ -101,11 +88,7 @@ export default function Dashboard() {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const ctx = new AudioContext();
       audioCtxRef.current = ctx;
-      
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
+      if (ctx.state === 'suspended') ctx.resume();
       setAudioEnabled(true);
       playNotificationSound();
     } catch (e) {
@@ -117,43 +100,34 @@ export default function Dashboard() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { window.location.href = '/'; return; }
-      
       setCurrentUser(session.user);
 
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
       let role = roleData?.role || 'sales';
-      if (session.user.email === 'assemryan0@gmail.com') {
-        role = 'admin';
-      }
+      if (session.user.email === 'assemryan0@gmail.com') role = 'admin';
       setUserRole(role);
 
       const { data: usersData } = await supabase.from('user_roles').select('*');
-      if (usersData) setTeamMembers(usersData || []);
+      if (usersData) setTeamMembers(usersData);
 
       let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
-      if (role !== 'admin') {
-        leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
-      }
+      if (role !== 'admin') leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
       const { data: leadsData } = await leadsQuery;
-      if (leadsData) setLeads(leadsData || []);
+      if (leadsData) setLeads(leadsData);
 
-      // جلب المشاريع والوحدات
       const { data: projData } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-      if (projData) setProjects(projData || []);
+      if (projData) setProjects(projData);
 
       const { data: unitData } = await supabase.from('units').select('*, projects(name)').order('created_at', { ascending: false });
-      if (unitData) setUnits(unitData || []);
+      if (unitData) setUnits(unitData);
 
-      // جلب المهام (Tasks) من قاعدة البيانات
       let tasksQuery = supabase.from('tasks').select('*').order('created_at', { ascending: false });
-      if (role !== 'admin') {
-        tasksQuery = tasksQuery.eq('assigned_to', session.user.id);
-      }
+      if (role !== 'admin') tasksQuery = tasksQuery.eq('assigned_to', session.user.id);
       const { data: tasksData } = await tasksQuery;
-      if (tasksData) setTasks(tasksData || []);
+      if (tasksData) setTasks(tasksData);
 
     } catch (err) {
-      console.log('Error fetching data:', err);
+      console.log(err);
     } finally {
       setLoading(false);
     }
@@ -172,41 +146,21 @@ export default function Dashboard() {
 
   const handleCreateManualLead = async (e) => {
     e.preventDefault();
-    if (!newLeadData.name || !newLeadData.phone) {
-      alert('الرجاء إدخال اسم ورقم هاتف العميل');
-      return;
-    }
-
-    try {
-      const assignedTarget = userRole === 'admin' ? (newLeadData.assigned_to || null) : currentUser.id;
-
-      const { error } = await supabase.from('leads').insert([{
-        name: newLeadData.name,
-        phone: newLeadData.phone,
-        email: newLeadData.email || '',
-        lead_source: newLeadData.lead_source,
-        status: 'New Lead',
-        assigned_to: assignedTarget
-      }]);
-
-      if (error) {
-        alert('خطأ في الإضافة: ' + error.message);
-      } else {
-        setShowAddLeadModal(false);
-        setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
-        fetchData();
-      }
-    } catch (err) {
-      alert('تعذر الاتصال بالخادم.');
+    if (!newLeadData.name || !newLeadData.phone) return alert('الرجاء إدخال اسم ورقم هاتف العميل');
+    const assignedTarget = userRole === 'admin' ? (newLeadData.assigned_to || null) : currentUser.id;
+    const { error } = await supabase.from('leads').insert([{ ...newLeadData, status: 'New Lead', assigned_to: assignedTarget }]);
+    if (!error) {
+      setShowAddLeadModal(false);
+      setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '' });
+      fetchData();
+    } else {
+      alert('خطأ: ' + error.message);
     }
   };
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
-    if (!newProjectData.name) {
-      alert('الرجاء إدخال اسم المشروع');
-      return;
-    }
+    if (!newProjectData.name) return alert('الرجاء إدخال اسم المشروع');
     const { error } = await supabase.from('projects').insert([newProjectData]);
     if (!error) {
       setShowProjectModal(false);
@@ -220,10 +174,7 @@ export default function Dashboard() {
 
   const handleCreateUnit = async (e) => {
     e.preventDefault();
-    if (!newUnitData.project_id || !newUnitData.unit_number) {
-      alert('الرجاء اختيار المشروع ورقم الوحدة');
-      return;
-    }
+    if (!newUnitData.project_id || !newUnitData.unit_number) return alert('الرجاء اختيار المشروع ورقم الوحدة');
     const { error } = await supabase.from('units').insert([newUnitData]);
     if (!error) {
       setShowUnitModal(false);
@@ -235,83 +186,58 @@ export default function Dashboard() {
     }
   };
 
-  // وظيفة حفظ مهمة جديدة في جدول tasks
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    if (!newTaskData.title) {
-      alert('الرجاء إدخال عنوان المهمة');
-      return;
-    }
-    try {
-      const assignedTarget = userRole === 'admin' ? (newTaskData.assigned_to || null) : currentUser.id;
-      const { error } = await supabase.from('tasks').insert([{
-        title: newTaskData.title,
-        description: newTaskData.description || '',
-        due_date: newTaskData.due_date || null,
-        assigned_to: assignedTarget,
-        status: 'Pending'
-      }]);
-
-      if (error) {
-        alert('خطأ في إضافة المهمة: ' + error.message);
-      } else {
-        setShowTaskModal(false);
-        setNewTaskData({ title: '', description: '', due_date: '', assigned_to: '' });
-        fetchData();
-        alert('تم إضافة المهمة بنجاح');
-      }
-    } catch (err) {
-      alert('تعذر حفظ المهمة.');
+    if (!newTaskData.title) return alert('الرجاء إدخال عنوان المهمة');
+    const assignedTarget = userRole === 'admin' ? (newTaskData.assigned_to || null) : currentUser.id;
+    const { error } = await supabase.from('tasks').insert([{
+      title: newTaskData.title,
+      description: newTaskData.description || '',
+      due_date: newTaskData.due_date || null,
+      assigned_to: assignedTarget,
+      status: 'Pending'
+    }]);
+    if (!error) {
+      setShowTaskModal(false);
+      setNewTaskData({ title: '', description: '', due_date: '', assigned_to: '' });
+      fetchData();
+      alert('تم إضافة المهمة بنجاح');
+    } else {
+      alert('خطأ: ' + error.message);
     }
   };
 
   const handleUpdateUnitStatus = async (unitId, newStatus) => {
     const { error } = await supabase.from('units').update({ status: newStatus }).eq('id', unitId);
-    if (!error) {
-      fetchData();
-    }
+    if (!error) fetchData();
   };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = async (event) => {
-      try {
-        const text = event.target.result;
-        const lines = text.split('\n');
-        let importedCount = 0;
-
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-
-          const cols = line.split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
-          const name = cols[0];
-          const phone = cols[1];
-          const email = cols[2] || '';
-          const lead_source = cols[3] || 'Imported';
-
-          if (name && phone) {
-            await supabase.from('leads').insert([{
-              name,
-              phone,
-              email,
-              lead_source,
-              status: 'New Lead',
-              assigned_to: userRole === 'admin' ? null : currentUser.id
-            }]);
-            importedCount++;
-          }
+      const lines = event.target.result.split('\n');
+      let count = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const cols = line.split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
+        if (cols[0] && cols[1]) {
+          await supabase.from('leads').insert([{
+            name: cols[0],
+            phone: cols[1],
+            email: cols[2] || '',
+            lead_source: cols[3] || 'Imported',
+            status: 'New Lead',
+            assigned_to: userRole === 'admin' ? null : currentUser.id
+          }]);
+          count++;
         }
-
-        alert(`تم استيراد ${importedCount} عميل بنجاح!`);
-        setShowImportModal(false);
-        fetchData();
-      } catch (err) {
-        alert('حدث خطأ أثناء قراءة الملف.');
       }
+      alert(`تم استيراد ${count} عميل بنجاح!`);
+      setShowImportModal(false);
+      fetchData();
     };
     reader.readAsText(file);
   };
@@ -319,14 +245,9 @@ export default function Dashboard() {
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
     const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
     if (!error) {
-      setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
-      await supabase.from('lead_logs').insert([{
-        lead_id: leadId,
-        user_email: currentUser.email,
-        action_type: 'Status Change',
-        content: `تم تغيير حالة العميل: ${newStatus}`
-      }]);
-      if (selectedLead && selectedLead.id === leadId) {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
+      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Status Change', content: `تم تغيير حالة العميل: ${newStatus}` }]);
+      if (selectedLead?.id === leadId) {
         setSelectedLead(prev => ({ ...prev, status: newStatus }));
         fetchLeadLogs(leadId);
       }
@@ -336,37 +257,23 @@ export default function Dashboard() {
   const handleSaveFollowUp = async (leadId, dateValue) => {
     const { error } = await supabase.from('leads').update({ next_follow_up: dateValue || null }).eq('id', leadId);
     if (!error) {
-      setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
-      await supabase.from('lead_logs').insert([{
-        lead_id: leadId,
-        user_email: currentUser.email,
-        action_type: 'Follow-up Set',
-        content: `تم جدولة موعد المتابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}`
-      }]);
-      if (selectedLead && selectedLead.id === leadId) {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
+      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Follow-up Set', content: `موعد المتابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}` }]);
+      if (selectedLead?.id === leadId) {
         setSelectedLead(prev => ({ ...prev, next_follow_up: dateValue }));
         fetchLeadLogs(leadId);
       }
-      alert('تم تحديث موعد المتابعة بنجاح');
+      alert('تم التحديث بنجاح');
     }
   };
 
   const handleAddLogNote = async (e) => {
     e.preventDefault();
     if (!newNote.trim() || !selectedLead) return;
-    
-    const { error } = await supabase.from('lead_logs').insert([{
-      lead_id: selectedLead.id,
-      user_email: currentUser.email,
-      action_type: 'Feedback/Note',
-      content: newNote
-    }]);
-
+    const { error } = await supabase.from('lead_logs').insert([{ lead_id: selectedLead.id, user_email: currentUser.email, action_type: 'Feedback/Note', content: newNote }]);
     if (!error) {
       setNewNote('');
       fetchLeadLogs(selectedLead.id);
-    } else {
-      alert('خطأ في إضافة الملاحظة: ' + error.message);
     }
   };
 
@@ -374,48 +281,27 @@ export default function Dashboard() {
     const target = teamMembers.find(m => m.id === assigneeId);
     const { error } = await supabase.from('leads').update({ assigned_to: assigneeId || null }).eq('id', leadId);
     if (!error) {
-      setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, assigned_to: assigneeId } : l));
-      await supabase.from('lead_logs').insert([{
-        lead_id: leadId,
-        user_email: currentUser.email,
-        action_type: 'Assign',
-        content: `تم إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}`
-      }]);
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assigned_to: assigneeId } : l));
+      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Assign', content: `تم إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}` }]);
       if (selectedLead) fetchLeadLogs(leadId);
     }
   };
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    try {
-      const { data, error } = await supabase.auth.signUp({ 
-        email: newUser.email, 
-        password: newUser.password 
-      });
-
-      if (error) {
-        alert('ملاحظة التسجيل: ' + error.message);
-        return;
-      }
-
-      if (data?.user) {
-        await supabase.from('user_roles').insert([{ 
-          id: data.user.id, 
-          email: newUser.email, 
-          role: newUser.role 
-        }]);
-        alert('تم إضافة الموظف بنجاح!');
-        setShowUserModal(false);
-        setNewUser({ email: '', password: '', role: 'sales' });
-        fetchData();
-      }
-    } catch (err) {
-      alert('خطأ في الاتصال بالشبكة.');
+    const { data, error } = await supabase.auth.signUp({ email: newUser.email, password: newUser.password });
+    if (error) { alert('خطأ: ' + error.message); return; }
+    if (data?.user) {
+      await supabase.from('user_roles').insert([{ id: data.user.id, email: newUser.email, role: newUser.role }]);
+      alert('تم إضافة الموظف بنجاح!');
+      setShowUserModal(false);
+      setNewUser({ email: '', password: '', role: 'sales' });
+      fetchData();
     }
   };
 
   const handleExportToExcel = () => {
-    if (leads.length === 0) { alert('لا توجد بيانات'); return; }
+    if (leads.length === 0) return alert('لا توجد بيانات');
     const headers = ['Name', 'Phone', 'Email', 'Source', 'Status', 'Next Follow Up'];
     const rows = leads.map(l => [`"${l.name || ''}"`, `"${l.phone || ''}"`, `"${l.email || ''}"`, `"${l.lead_source || ''}"`, `"${l.status || ''}"`, `"${l.next_follow_up || ''}"`]);
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -429,43 +315,25 @@ export default function Dashboard() {
     document.body.removeChild(link);
   };
 
-  const filteredLeads = leads.filter(l => 
-    (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (l.phone || '').includes(searchQuery)
-  );
-
+  const filteredLeads = leads.filter(l => (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.phone || '').includes(searchQuery));
   const todayStr = new Date().toISOString().slice(0, 10);
-  const dueFollowUps = leads.filter(l => {
-    if (!l.next_follow_up) return false;
-    return new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr;
-  });
-
-  const totalLeadsCount = leads.length;
-  const interestedCount = leads.filter(l => l.status === 'Interested').length;
-  const closedWonCount = leads.filter(l => l.status === 'Closed Won').length;
+  const dueFollowUps = leads.filter(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
 
   if (loading) return <div style={{ color: '#d4af37', textAlign: 'center', padding: '5rem', backgroundColor: '#0c0f17', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
-
       <header style={{ backgroundColor: '#131822', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #d4af37' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h1 style={{ margin: 0, color: '#d4af37', fontSize: '1.2rem', fontFamily: 'serif' }}>ARCOVA CRM</h1>
-          <span style={{ backgroundColor: userRole === 'admin' ? '#991b1b' : '#075985', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem' }}>
-            {userRole === 'admin' ? 'Admin' : 'Sales'}
-          </span>
+          <span style={{ backgroundColor: userRole === 'admin' ? '#991b1b' : '#075985', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem' }}>{userRole === 'admin' ? 'Admin' : 'Sales'}</span>
         </div>
-        
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button onClick={enableAudioAndTest} style={{ padding: '0.4rem 0.8rem', backgroundColor: audioEnabled ? '#065f46' : '#991b1b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
-            {audioEnabled ? '🔔 التنبيه الحي مفعل' : '🔕 تفعيل الصوت التلقائي (اضغط هنا)'}
+            {audioEnabled ? '🔔 التنبيه الحي مفعل' : '🔕 تفعيل الصوت التلقائي'}
           </button>
-
           <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{currentUser?.email}</span>
-          {userRole === 'admin' && (
-            <button onClick={() => setShowUserModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>+ موظف</button>
-          )}
+          {userRole === 'admin' && <button onClick={() => setShowUserModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>+ موظف</button>}
           <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#374151', color: '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>خروج</button>
         </div>
       </header>
@@ -479,44 +347,20 @@ export default function Dashboard() {
           {userRole === 'admin' && (
             <>
               <button onClick={() => setActiveTab('team')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>فريق العمل</button>
-              <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات (Leaderboard)</button>
+              <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات</button>
             </>
           )}
         </div>
-
-        <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-          + تسجيل عميل
-        </button>
+        <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>+ تسجيل عميل</button>
       </div>
 
       <main style={{ padding: '1.5rem' }}>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #d4af37', padding: '1rem', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>إجمالي العملاء</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#d4af37', marginTop: '0.3rem' }}>{totalLeadsCount}</div>
-          </div>
-          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #f59e0b', padding: '1rem', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>مهتم جداً</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#f59e0b', marginTop: '0.3rem' }}>{interestedCount}</div>
-          </div>
-          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #34d399', padding: '1rem', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>تم التعاقد (Won)</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#34d399', marginTop: '0.3rem' }}>{closedWonCount}</div>
-          </div>
-          <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #ef4444', padding: '1rem', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>متابعات مستحقة اليوم</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#ef4444', marginTop: '0.3rem' }}>{dueFollowUps.length}</div>
-          </div>
-        </div>
-
         {activeTab === 'list' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
               <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '300px', padding: '0.5rem', backgroundColor: '#131822', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.85rem' }} />
-              
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button onClick={() => setShowImportModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#34d399', border: '1px solid #34d399', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📥 استيراد Excel/CSV</button>
+                <button onClick={() => setShowImportModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#34d399', border: '1px solid #34d399', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📥 استيراد Excel</button>
                 <button onClick={handleExportToExcel} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📤 تصدير Excel</button>
               </div>
             </div>
@@ -527,10 +371,10 @@ export default function Dashboard() {
                   <tr style={{ backgroundColor: '#0c0f17', color: '#d4af37', borderBottom: '1px solid #1f2937' }}>
                     <th style={{ padding: '0.8rem' }}>العميل والهاتف</th>
                     <th style={{ padding: '0.8rem' }}>المصدر</th>
-                    <th style={{ padding: '0.8rem' }}>الحالة (Feedback)</th>
+                    <th style={{ padding: '0.8rem' }}>الحالة</th>
                     <th style={{ padding: '0.8rem' }}>الموعد القادم</th>
                     <th style={{ padding: '0.8rem' }}>المسؤول</th>
-                    <th style={{ padding: '0.8rem' }}>الإجراء السريع</th>
+                    <th style={{ padding: '0.8rem' }}>الإجراء</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -560,9 +404,9 @@ export default function Dashboard() {
                         )}
                       </td>
                       <td style={{ padding: '0.8rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                        <button onClick={() => handleOpenLeadDetails(lead)} title="عرض الفيدباك" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>الفيدباك</button>
-                        <a href={`tel:${lead.phone}`} title="اتصال مباشر" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>📞</a>
-                        <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" title="محادثة واتساب" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>🟢</a>
+                        <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>الفيدباك</button>
+                        <a href={`tel:${lead.phone}`} style={{ padding: '0.3rem 0.5rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>📞</a>
+                        <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>🟢</a>
                       </td>
                     </tr>
                   ))}
@@ -572,14 +416,12 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* قسم المهام (Tasks) الجديد */}
         {activeTab === 'tasks' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>📋 إدارة المهام الإدارية</h3>
               <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مهمة</button>
             </div>
-
             <div style={{ backgroundColor: '#131822', borderRadius: '6px', overflowX: 'auto', border: '1px solid #1f2937' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
                 <thead>
@@ -591,22 +433,18 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {tasks.length === 0 ? (
-                    <tr>
-                      <td colSpan="3" style={{ padding: '1.5rem', textAlign: 'center', color: '#9ca3af' }}>لا توجد مهام مسجلة حالياً.</td>
-                    </tr>
+                    <tr><td colSpan="3" style={{ padding: '1.5rem', textAlign: 'center', color: '#9ca3af' }}>لا توجد مهام مسجلة حالياً.</td></tr>
                   ) : (
                     tasks.map(task => (
                       <tr key={task.id} style={{ borderBottom: '1px solid #1f2937' }}>
                         <td style={{ padding: '0.8rem' }}>
                           <div style={{ fontWeight: 'bold', color: '#f3f4f6' }}>{task.title}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.2rem' }}>{task.description || 'لا توجد تفاصيل إضافية'}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.2rem' }}>{task.description || 'لا توجد تفاصيل'}</div>
                         </td>
                         <td style={{ padding: '0.8rem', color: task.due_date ? '#f59e0b' : '#6b7280', fontSize: '0.8rem' }}>
                           {task.due_date ? new Date(task.due_date).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'غير محدد'}
                         </td>
-                        <td style={{ padding: '0.8rem', color: '#34d399', fontSize: '0.8rem' }}>
-                          {task.status || 'Pending'}
-                        </td>
+                        <td style={{ padding: '0.8rem', color: '#34d399', fontSize: '0.8rem' }}>{task.status || 'Pending'}</td>
                       </tr>
                     ))
                   )}
@@ -652,7 +490,6 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
               {projects.map(proj => (
                 <div key={proj.id} style={{ backgroundColor: '#131822', padding: '1rem', borderRadius: '6px', border: '1px solid #1f2937', borderRight: '4px solid #d4af37' }}>
@@ -662,8 +499,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-
-            <h4 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem', marginBottom: '0.8rem' }}>قائمة الوحدات المتاحة والمحجوزة</h4>
+            <h4 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem', marginBottom: '0.8rem' }}>قائمة الوحدات</h4>
             <div style={{ backgroundColor: '#131822', borderRadius: '6px', overflowX: 'auto', border: '1px solid #1f2937' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
                 <thead>
@@ -701,29 +537,19 @@ export default function Dashboard() {
 
         {activeTab === 'leaderboard' && userRole === 'admin' && (
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
-            <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', marginBottom: '1rem' }}>🏆 لوحة أداء فريق المبيعات (Leaderboard)</h3>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', marginBottom: '1rem' }}>🏆 لوحة أداء فريق المبيعات</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
               {teamMembers.map(member => {
                 const memberLeads = leads.filter(l => l.assigned_to === member.id);
                 const memberWon = memberLeads.filter(l => l.status === 'Closed Won').length;
                 const memberInterested = memberLeads.filter(l => l.status === 'Interested').length;
-
                 return (
                   <div key={member.id} style={{ backgroundColor: '#0c0f17', padding: '1rem', borderRadius: '6px', border: '1px solid #1f2937', borderTop: '3px solid #d4af37' }}>
                     <div style={{ fontWeight: 'bold', color: '#f3f4f6', fontSize: '0.9rem' }}>{member.email}</div>
                     <div style={{ fontSize: '0.75rem', color: '#d4af37', marginBottom: '0.8rem' }}>الدور: {member.role}</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}>
-                      <span>إجمالي العملاء:</span>
-                      <span style={{ color: '#fff', fontWeight: 'bold' }}>{memberLeads.length}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}>
-                      <span>مهتم جداً:</span>
-                      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>{memberInterested}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}>
-                      <span>تم التعاقد (Won):</span>
-                      <span style={{ color: '#34d399', fontWeight: 'bold' }}>{memberWon}</span>
-                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}><span>إجمالي العملاء:</span><span style={{ color: '#fff', fontWeight: 'bold' }}>{memberLeads.length}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}><span>مهتم جداً:</span><span style={{ color: '#f59e0b', fontWeight: 'bold' }}>{memberInterested}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', margin: '0.3rem 0', color: '#9ca3af' }}><span>تم التعاقد:</span><span style={{ color: '#34d399', fontWeight: 'bold' }}>{memberWon}</span></div>
                   </div>
                 );
               })}
@@ -741,7 +567,7 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Modal إضافة مهمة جديدة */}
+      {/* Modals */}
       {showTaskModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
@@ -749,12 +575,10 @@ export default function Dashboard() {
             <form onSubmit={handleCreateTask} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
               <input type="text" placeholder="عنوان المهمة *" required value={newTaskData.title} onChange={(e) => setNewTaskData({...newTaskData, title: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <textarea placeholder="وصف المهمة" value={newTaskData.description} onChange={(e) => setNewTaskData({...newTaskData, description: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem', minHeight: '60px' }} />
-              
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                 <label style={{ fontSize: '0.75rem', color: '#d4af37' }}>الموعد النهائي:</label>
                 <input type="datetime-local" value={newTaskData.due_date} onChange={(e) => setNewTaskData({...newTaskData, due_date: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               </div>
-
               {userRole === 'admin' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                   <label style={{ fontSize: '0.75rem', color: '#d4af37' }}>إسناد لموظف:</label>
@@ -764,7 +588,6 @@ export default function Dashboard() {
                   </select>
                 </div>
               )}
-
               <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ المهمة</button>
               <button type="button" onClick={() => setShowTaskModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
             </form>
@@ -772,7 +595,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal إضافة مشروع */}
       {showProjectModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
@@ -788,7 +610,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal إضافة وحدة */}
       {showUnitModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
@@ -799,10 +620,9 @@ export default function Dashboard() {
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               <input type="text" placeholder="رقم الوحدة *" required value={newUnitData.unit_number} onChange={(e) => setNewUnitData({...newUnitData, unit_number: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <input type="text" placeholder="النوع (شقة، فيلا، مكتب...)" value={newUnitData.type} onChange={(e) => setNewUnitData({...newUnitData, type: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="النوع (شقة، فيلا...)" value={newUnitData.type} onChange={(e) => setNewUnitData({...newUnitData, type: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="number" placeholder="المساحة (م²)" value={newUnitData.area} onChange={(e) => setNewUnitData({...newUnitData, area: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="number" placeholder="السعر" value={newUnitData.price} onChange={(e) => setNewUnitData({...newUnitData, price: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
-              
               <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ الوحدة</button>
               <button type="button" onClick={() => setShowUnitModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
             </form>
@@ -831,4 +651,41 @@ export default function Dashboard() {
                 <option value="sales">Sales Agent</option>
                 <option value="admin">Admin Directorate</option>
               </select>
-              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border:
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
+              <button type="button" onClick={() => setShowUserModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showAddLeadModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>تسجيل عميل جديد</h3>
+            <form onSubmit={handleCreateManualLead} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
+              <input type="text" placeholder="اسم العميل *" required value={newLeadData.name} onChange={(e) => setNewLeadData({...newLeadData, name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="رقم الهاتف *" required value={newLeadData.phone} onChange={(e) => setNewLeadData({...newLeadData, phone: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="email" placeholder="البريد الإلكتروني" value={newLeadData.email} onChange={(e) => setNewLeadData({...newLeadData, email: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="المصدر" value={newLeadData.lead_source} onChange={(e) => setNewLeadData({...newLeadData, lead_source: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              {userRole === 'admin' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                  <label style={{ fontSize: '0.75rem', color: '#d4af37' }}>إسناد لموظف Sales:</label>
+                  <select value={newLeadData.assigned_to} onChange={(e) => setNewLeadData({...newLeadData, assigned_to: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
+                    <option value="">-- اختر الموظف --</option>
+                    {teamMembers.map(m => <option key={m.id} value={m.id}>{m.email}</option>)}
+                  </select>
+                </div>
+              )}
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ وإسناد</button>
+              <button type="button" onClick={() => setShowAddLeadModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {selectedLead && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '450px', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>{selectedLead.name}</h3>
+            <p style={{ color: '#9ca3af', margin: '0.3rem 0', fontSize: '0.8rem' }}>{selectedLead.phone}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937', 
