@@ -15,6 +15,13 @@ export default function Dashboard() {
   const [campaigns, setCampaigns] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   
+  // المجلدات والفلاتر الجديدة
+  const [folders, setFolders] = useState(['عملاء التجمع', 'متابعة حارة', 'أرشيف 2026']);
+  const [selectedFolderFilter, setSelectedFolderFilter] = useState('');
+  const [selectedCampaignFilter, setSelectedCampaignFilter] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+
   const [activeTab, setActiveTab] = useState('list');
   
   const [showUserModal, setShowUserModal] = useState(false);
@@ -32,7 +39,7 @@ export default function Dashboard() {
   
   const [newLeadData, setNewLeadData] = useState({ 
     name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '',
-    budget: '', preferred_area: '', desired_unit_type: 'شقة'
+    budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: ''
   });
 
   const [newProjectData, setNewProjectData] = useState({ name: '', location: '', description: '' });
@@ -188,13 +195,14 @@ export default function Dashboard() {
         assigned_to: assignedTarget,
         budget: newLeadData.budget ? parseFloat(newLeadData.budget) : null,
         preferred_area: newLeadData.preferred_area,
-        desired_unit_type: newLeadData.desired_unit_type
+        desired_unit_type: newLeadData.desired_unit_type,
+        folder: newLeadData.folder || null
       }]);
 
       if (error) alert('خطأ في الإضافة: ' + error.message);
       else {
         setShowAddLeadModal(false);
-        setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '', budget: '', preferred_area: '', desired_unit_type: 'شقة' });
+        setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '', budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: '' });
         fetchData();
       }
     } catch (err) { alert('تعذر الاتصال بالخادم.'); }
@@ -226,6 +234,24 @@ export default function Dashboard() {
     if (!newCampaignData.name) return;
     const { error } = await supabase.from('campaigns').insert([newCampaignData]);
     if (!error) { setShowCampaignModal(false); setNewCampaignData({ name: '', platform: '', budget: '', status: 'Active' }); fetchData(); alert('تم إضافة الحملة'); }
+  };
+
+  const handleCreateFolder = (e) => {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    if (!folders.includes(newFolderName.trim())) {
+      setFolders([...folders, newFolderName.trim()]);
+    }
+    setNewFolderName('');
+    setShowCreateFolderModal(false);
+  };
+
+  const handleMoveLeadToFolder = async (leadId, folderName) => {
+    const { error } = await supabase.from('leads').update({ folder: folderName || null }).eq('id', leadId);
+    if (!error) {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, folder: folderName } : l));
+      if (selectedLead?.id === leadId) setSelectedLead(prev => ({ ...prev, folder: folderName }));
+    }
   };
 
   const handleUpdateUnitStatus = async (unitId, newStatus) => {
@@ -328,8 +354,8 @@ export default function Dashboard() {
 
   const handleExportToExcel = () => {
     if (leads.length === 0) return;
-    const headers = ['Name', 'Phone', 'Email', 'Source', 'Status', 'Budget', 'Area', 'Next Follow Up'];
-    const rows = leads.map(l => [`"${l.name || ''}"`, `"${l.phone || ''}"`, `"${l.email || ''}"`, `"${l.lead_source || ''}"`, `"${l.status || ''}"`, `"${l.budget || ''}"`, `"${l.preferred_area || ''}"`, `"${l.next_follow_up || ''}"`]);
+    const headers = ['Name', 'Phone', 'Email', 'Source', 'Status', 'Budget', 'Area', 'Folder', 'Next Follow Up'];
+    const rows = leads.map(l => [`"${l.name || ''}"`, `"${l.phone || ''}"`, `"${l.email || ''}"`, `"${l.lead_source || ''}"`, `"${l.status || ''}"`, `"${l.budget || ''}"`, `"${l.preferred_area || ''}"`, `"${l.folder || ''}"`, `"${l.next_follow_up || ''}"`]);
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -339,7 +365,7 @@ export default function Dashboard() {
 
   const handleSaveFinancialPlan = async (e) => {
     e.preventDefault();
-    if (!selectedLead || !calcData.unitPrice) return;
+    if (!selectedLead || !calcData.unitPrice || userRole === 'marketing') return;
     const price = parseFloat(calcData.unitPrice);
     const down = price * (calcData.downPaymentPercent / 100);
     const delivery = price * (calcData.deliveryPercent / 100);
@@ -354,7 +380,23 @@ export default function Dashboard() {
     if (!error) { alert('تم حفظ الخطة المالية في ملف العميل'); fetchLeadLogs(selectedLead.id); }
   };
 
-  const filteredLeads = leads.filter(l => (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.phone || '').includes(searchQuery));
+  // تصفية العملاء
+  const filteredLeads = leads.filter(l => {
+    const matchesSearch = (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.phone || '').includes(searchQuery);
+    const matchesFolder = selectedFolderFilter ? l.folder === selectedFolderFilter : true;
+    
+    // فلترة الماركتنج حسب الحملة/المشروع وإمكانية الرؤية
+    let matchesCampaignOrProject = true;
+    if (selectedCampaignFilter) {
+      matchesCampaignOrProject = (l.campaign_id === selectedCampaignFilter || l.lead_source === selectedCampaignFilter || l.preferred_area === selectedCampaignFilter);
+    } else if (userRole === 'marketing') {
+      // إذا لم يجهز للماركتنج فلتر، يرى فقط العملاء المرتبطين بحملاته أو مصادره
+      matchesCampaignOrProject = l.lead_source === 'Marketing' || l.assigned_to === currentUser.id;
+    }
+
+    return matchesSearch && matchesFolder && matchesCampaignOrProject;
+  });
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const dueFollowUps = leads.filter(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
 
@@ -369,26 +411,73 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
 
-      <header style={{ backgroundColor: '#131822', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #d4af37' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h1 style={{ margin: 0, color: '#d4af37', fontSize: '1.2rem', fontFamily: 'serif' }}>ARCOVA CRM</h1>
-          <span style={{ backgroundColor: userRole === 'admin' ? '#991b1b' : userRole === 'marketing' ? '#9333ea' : '#075985', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem' }}>
-            {userRole === 'admin' ? 'Admin' : userRole === 'marketing' ? 'Marketing' : 'Sales'}
-          </span>
+      {/* --- شريط الهيدر المودرن (Modern Navbar) --- */}
+      <header style={{ 
+        backgroundColor: '#131822', 
+        padding: '0.8rem 2rem', 
+        display: 'flex', 
+        justify: 'space-between', 
+        alignItems: 'center', 
+        borderBottom: '1px solid rgba(212, 175, 55, 0.3)',
+        position: 'relative'
+      }}>
+        {/* اللوجو ARCOVA في كارت زجاجي Glassmorphic مع إضاءة خلفية دائرية */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <div style={{
+            position: 'absolute',
+            width: '100px',
+            height: '100px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(212,175,55,0.25) 0%, rgba(0,0,0,0) 70%)',
+            top: '-30px',
+            left: '-20px',
+            pointerEvents: 'none'
+          }} />
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(212, 175, 55, 0.4)',
+            padding: '0.4rem 1.2rem',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.8rem',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h1 style={{ margin: 0, color: '#d4af37', fontSize: '1.3rem', fontFamily: 'serif', letterSpacing: '1px' }}>ARCOVA</h1>
+            <span style={{ fontSize: '0.75rem', color: '#9ca3af', borderRight: '1px solid #374151', paddingRight: '0.8rem' }}>CRM System</span>
+          </div>
         </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={enableAudioAndTest} style={{ padding: '0.4rem 0.8rem', backgroundColor: audioEnabled ? '#065f46' : '#991b1b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
-            {audioEnabled ? '🔔 التنبيه الحي مفعل' : '🔕 تفعيل الصوت (اضغط هنا)'}
+
+        {/* تجميع زر الصوت، بريد المستخدم، وشارة الدور بطريقة متناسقة */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(19, 24, 34, 0.8)', padding: '0.4rem 0.8rem', borderRadius: '30px', border: '1px solid #1f2937' }}>
+          <button onClick={enableAudioAndTest} style={{ padding: '0.4rem 0.8rem', backgroundColor: audioEnabled ? '#065f46' : '#991b1b', color: '#fff', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            {audioEnabled ? '🔔 التنبيه مفعّل' : '🔕 تفعيل الصوت'}
           </button>
-          <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{currentUser?.email}</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRight: '1px solid #374151', paddingRight: '1rem' }}>
+            <span style={{ fontSize: '0.8rem', color: '#e5e7eb', fontWeight: '500' }}>{currentUser?.email}</span>
+            <span style={{ 
+              backgroundColor: userRole === 'admin' ? '#991b1b' : userRole === 'marketing' ? '#9333ea' : '#075985', 
+              color: '#fff', 
+              padding: '0.15rem 0.6rem', 
+              borderRadius: '12px', 
+              fontSize: '0.7rem',
+              fontWeight: 'bold',
+              textTransform: 'uppercase'
+            }}>
+              {userRole === 'admin' ? 'Admin' : userRole === 'marketing' ? 'Marketing' : 'Sales'}
+            </span>
+          </div>
+
           {userRole === 'admin' && (
-            <button onClick={() => setShowUserModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>+ موظف</button>
+            <button onClick={() => setShowUserModal(true)} style={{ padding: '0.3rem 0.7rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '15px', cursor: 'pointer', fontSize: '0.75rem' }}>+ موظف</button>
           )}
-          <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#374151', color: '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>خروج</button>
+          <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} style={{ padding: '0.3rem 0.7rem', backgroundColor: '#374151', color: '#f3f4f6', border: 'none', borderRadius: '15px', cursor: 'pointer', fontSize: '0.75rem' }}>خروج</button>
         </div>
       </header>
 
+      {/* شريط الأبواب والتبويبات */}
       <div style={{ backgroundColor: '#131822', padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #1f2937', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => setActiveTab('list')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'list' ? '#d4af37' : 'transparent', color: activeTab === 'list' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>العملاء ({leads.length})</button>
@@ -404,10 +493,6 @@ export default function Dashboard() {
             </>
           )}
         </div>
-
-        <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-          + تسجيل عميل
-        </button>
       </div>
 
       <main style={{ padding: '1.5rem' }}>
@@ -436,15 +521,77 @@ export default function Dashboard() {
 
         {activeTab === 'list' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
-              <input type="text" placeholder="🔍 بحث باسم العميل أو الهاتف..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', maxWidth: '300px', padding: '0.5rem', backgroundColor: '#131822', border: '1px solid #374151', color: '#fff', borderRadius: '4px', fontSize: '0.85rem' }} />
-              
-              {userRole === 'admin' && (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => setShowImportModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#34d399', border: '1px solid #34d399', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📥 استيراد Excel/CSV</button>
-                  <button onClick={handleExportToExcel} style={{ padding: '0.5rem 1rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📤 تصدير Excel</button>
-                </div>
-              )}
+            {/* --- شريط أدوات الإجراءات (Modern Toolbar) --- */}
+            <div style={{ 
+              backgroundColor: '#131822', 
+              padding: '0.8rem 1rem', 
+              borderRadius: '8px', 
+              border: '1px solid #1f2937',
+              display: 'flex', 
+              alignItems: 'center', 
+              justify: 'space-between', 
+              flexWrap: 'wrap', 
+              gap: '0.8rem',
+              marginBottom: '1rem' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap', flex: 1 }}>
+                {/* تصفية حسب المجلد */}
+                <select 
+                  value={selectedFolderFilter} 
+                  onChange={(e) => setSelectedFolderFilter(e.target.value)}
+                  style={{ padding: '0.5rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#d4af37', borderRadius: '6px', fontSize: '0.85rem' }}
+                >
+                  <option value="">📁 كل المجلدات</option>
+                  {folders.map((f, idx) => (
+                    <option key={idx} value={f}>📂 {f}</option>
+                  ))}
+                </select>
+
+                {/* زر إنشاء مجلد جديد */}
+                <button 
+                  onClick={() => setShowCreateFolderModal(true)} 
+                  style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                >
+                  + مجلد جديد
+                </button>
+
+                {/* فلتر حملة الماركتنج والمشروع */}
+                <select 
+                  value={selectedCampaignFilter} 
+                  onChange={(e) => setSelectedCampaignFilter(e.target.value)}
+                  style={{ padding: '0.5rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#9333ea', borderRadius: '6px', fontSize: '0.85rem' }}
+                >
+                  <option value="">🎯 كل الحملات والمشاريع</option>
+                  {campaigns.map(c => (
+                    <option key={c.id} value={c.name}>📢 {c.name}</option>
+                  ))}
+                  {projects.map(p => (
+                    <option key={p.id} value={p.name}>🏢 {p.name}</option>
+                  ))}
+                </select>
+
+                {/* شريط البحث */}
+                <input 
+                  type="text" 
+                  placeholder="🔍 بحث باسم العميل أو الهاتف..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  style={{ flex: 1, minWidth: '200px', padding: '0.5rem 0.8rem', backgroundColor: '#0c0f17', border: '1px solid #374151', color: '#fff', borderRadius: '6px', fontSize: '0.85rem' }} 
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                  + تسجيل عميل
+                </button>
+
+                {userRole === 'admin' && (
+                  <>
+                    <button onClick={() => setShowImportModal(true)} style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#34d399', border: '1px solid #34d399', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>📥 استيراد</button>
+                    <button onClick={handleExportToExcel} style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>📤 تصدير</button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div style={{ backgroundColor: '#131822', borderRadius: '6px', overflowX: 'auto', border: '1px solid #1f2937' }}>
@@ -452,7 +599,7 @@ export default function Dashboard() {
                 <thead>
                   <tr style={{ backgroundColor: '#0c0f17', color: '#d4af37', borderBottom: '1px solid #1f2937' }}>
                     <th style={{ padding: '0.8rem' }}>العميل والهاتف</th>
-                    <th style={{ padding: '0.8rem' }}>المصدر</th>
+                    <th style={{ padding: '0.8rem' }}>المصدر / المجلد</th>
                     <th style={{ padding: '0.8rem' }}>الميزانية والمنطقة</th>
                     <th style={{ padding: '0.8rem' }}>الحالة</th>
                     <th style={{ padding: '0.8rem' }}>الموعد القادم</th>
@@ -466,16 +613,25 @@ export default function Dashboard() {
                       <td style={{ padding: '0.8rem' }}>
                         <div style={{ fontWeight: 'bold', color: '#f3f4f6' }}>{lead.name}</div>
                         <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                          {/* التشفير لأرقام الهواتف لحماية الخصوصية ما عدا الأدمن */}
                           {userRole === 'admin' ? lead.phone : `******${(lead.phone || '').slice(-4)}`}
                         </div>
                       </td>
-                      <td style={{ padding: '0.8rem', color: '#9ca3af' }}>{lead.lead_source}</td>
+                      <td style={{ padding: '0.8rem', color: '#9ca3af' }}>
+                        <div>{lead.lead_source}</div>
+                        {lead.folder && (
+                          <span style={{ backgroundColor: '#1f2937', color: '#d4af37', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', marginTop: '0.2rem', display: 'inline-block' }}>
+                            📁 {lead.folder}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding: '0.8rem', color: '#9ca3af', fontSize: '0.8rem' }}>
                         <div>{lead.budget ? `${Number(lead.budget).toLocaleString()} ج.م` : 'غير محدد'}</div>
                         <div style={{ fontSize: '0.75rem', color: '#d4af37' }}>{lead.preferred_area || ''} ({lead.desired_unit_type || ''})</div>
                       </td>
                       <td style={{ padding: '0.8rem' }}>
-                        <select disabled={userRole === 'marketing'} value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        {/* الماركتنج ممنوع من تغيير حالة العميل */}
+                        <select disabled={userRole === 'marketing'} value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
                           {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                       </td>
@@ -496,8 +652,24 @@ export default function Dashboard() {
                       </td>
                       <td style={{ padding: '0.8rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                         <button onClick={() => handleOpenLeadDetails(lead)} title="تفاصيل وفيدباك" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>التفاصيل</button>
-                        <a href={`tel:${lead.phone}`} title="اتصال" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>📞</a>
-                        <a href={`https://wa.me/${(lead.phone || '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" title="واتساب" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>🟢</a>
+
+                        {/* خيار نقل العميل إلى مجلد */}
+                        <select 
+                          value={lead.folder || ''} 
+                          onChange={(e) => handleMoveLeadToFolder(lead.id, e.target.value)}
+                          style={{ padding: '0.25rem', backgroundColor: '#0c0f17', color: '#9ca3af', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.7rem' }}
+                        >
+                          <option value="">نقل لمجلد...</option>
+                          {folders.map((f, i) => <option key={i} value={f}>{f}</option>)}
+                        </select>
+
+                        {/* الاتصال المباشر والواتساب للمبيعات والأدمن */}
+                        {userRole !== 'marketing' && (
+                          <>
+                            <a href={`tel:${lead.phone}`} title="اتصال" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>📞</a>
+                            <a href={`https://wa.me/${(lead.phone || '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" title="واتساب" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>🟢</a>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -524,8 +696,12 @@ export default function Dashboard() {
                     </div>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.3rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>فتح</button>
-                      <a href={`tel:${lead.phone}`} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>📞</a>
-                      <a href={`https://wa.me/${(lead.phone || '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>🟢</a>
+                      {userRole !== 'marketing' && (
+                        <>
+                          <a href={`tel:${lead.phone}`} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>📞</a>
+                          <a href={`https://wa.me/${(lead.phone || '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>🟢</a>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -699,6 +875,20 @@ export default function Dashboard() {
 
       {/* --- جميع النوافذ المنبثقة (Modals) --- */}
 
+      {/* مودال إنشاء مجلد جديد */}
+      {showCreateFolderModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
+          <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
+            <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إنشاء مجلد جديد</h3>
+            <form onSubmit={handleCreateFolder} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
+              <input type="text" placeholder="اسم المجلد (مثل: عملاء التجمع)" required value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إنشاء</button>
+              <button type="button" onClick={() => setShowCreateFolderModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* مودال إضافة مستخدم جديد */}
       {showUserModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
@@ -748,11 +938,13 @@ export default function Dashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937', fontSize: '0.85rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: '#d4af37' }}>الحالة:</span>
-                <select disabled={userRole === 'marketing'} value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
+                {/* الماركتنج ممنوع من تغيير حالة العميل */}
+                <select disabled={userRole === 'marketing'} value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
                   {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
 
+              {/* الماركتنج ممنوع من تعديل المتابعات */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <span style={{ color: '#d4af37', fontSize: '0.8rem' }}>موعد المتابعة:</span>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
@@ -764,7 +956,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* حاسبة الأقساط التفاعلية - لا تظهر للماركتنج */}
+            {/* حاسبة الأقساط التفاعلية - ممنوع للماركتنج */}
             {userRole !== 'marketing' && (
               <div style={{ backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937' }}>
                 <h4 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '0.9rem', marginTop: 0, marginBottom: '0.5rem' }}>🧮 حاسبة الأقساط التفاعلية</h4>
@@ -809,6 +1001,7 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* الفيدباك والملاحظات - متاح للماركتنج بشكل كامل */}
             <h4 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '0.9rem', marginBottom: '0.5rem' }}>سجل الفيدباك:</h4>
 
             <form onSubmit={handleAddLogNote} style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.8rem' }}>
@@ -839,6 +1032,11 @@ export default function Dashboard() {
               <input type="text" placeholder="اسم العميل" required value={newLeadData.name} onChange={(e) => setNewLeadData({...newLeadData, name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="text" placeholder="رقم الهاتف" required value={newLeadData.phone} onChange={(e) => setNewLeadData({...newLeadData, phone: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               
+              <select value={newLeadData.folder} onChange={(e) => setNewLeadData({...newLeadData, folder: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
+                <option value="">إضافة إلى مجلد (اختياري)...</option>
+                {folders.map((f, i) => <option key={i} value={f}>{f}</option>)}
+              </select>
+
               {(userRole === 'admin' || userRole === 'marketing') && (
                 <select value={newLeadData.assigned_to} onChange={(e) => setNewLeadData({...newLeadData, assigned_to: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
                   <option value="">إسناد العميل إلى... (اختياري)</option>
@@ -939,4 +1137,5 @@ export default function Dashboard() {
 
     </div>
   );
-                    }
+        }
+     
