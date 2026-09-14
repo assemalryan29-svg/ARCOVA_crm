@@ -1,26 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
 
-// إنشاء اتصال باستخدام Service Role Key لضمان صلاحية الكتابة من السيرفر
+// إنشاء اتصال مع Supabase بواسطة Service Role Key
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export default async function handler(req, res) {
-  // السماح فقط بطلبات POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { name, phone, email, lead_source } = req.body;
+    // استقبال جميع الحقول الممكنة من الـ Body
+    const { 
+      name, 
+      phone, 
+      email, 
+      lead_source, 
+      folder, 
+      desired_unit_type, 
+      budget, 
+      preferred_location,
+      file_url 
+    } = req.body;
 
-    // التحقق من البيانات الأساسية
     if (!name || !phone) {
       return res.status(400).json({ error: 'Name and phone are required' });
     }
 
-    // إدخال العميل في جدول leads
+    // إدخال البيانات في جدول leads
     const { data, error } = await supabaseAdmin
       .from('leads')
       .insert([
@@ -29,7 +38,12 @@ export default async function handler(req, res) {
           phone: phone,
           email: email || '',
           lead_source: lead_source || 'Facebook Ads',
-          status: 'New Lead'
+          status: 'New Lead',
+          folder: folder || null,
+          desired_unit_type: desired_unit_type || null,
+          budget: budget || null,
+          preferred_location: preferred_location || null,
+          file_url: file_url || null
         }
       ])
       .select();
