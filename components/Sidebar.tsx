@@ -1,8 +1,6 @@
-"use client";
-
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/router';
 import { 
   LayoutDashboard, 
   Users, 
@@ -22,22 +20,20 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const router = useRouter();
 
   return (
     <aside className="w-64 bg-slate-900 text-white min-h-screen p-4 flex flex-col justify-between">
       <div>
-        {/* اللوجو و اسم الشركة */}
         <div className="flex items-center gap-3 px-3 py-4 mb-6 border-b border-slate-800">
           <div className="bg-blue-600 p-2 rounded-lg font-bold text-xl">A</div>
           <span className="font-bold text-lg tracking-wide">ARCOVA CRM</span>
         </div>
 
-        {/* الأيقونات والمرتبة */}
         <nav className="space-y-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = router.pathname === item.href;
 
             return (
               <Link
@@ -59,4 +55,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-
