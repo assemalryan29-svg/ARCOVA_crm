@@ -826,7 +826,7 @@ export default function Dashboard() {
                     <div>
                       <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>{member.email}</div>
                       <div style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.2rem' }}>إجمالي العملاء المستلمين: {memberLeads.length}</div>
-                    </div>
+                         </div>
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ color: '#34d399', fontWeight: 'bold', fontSize: '0.9rem' }}>تم البيع: {wonLeads.length}</div>
                       <div style={{ color: '#60a5fa', fontSize: '0.75rem' }}>نسبة النجاح: {rate}%</div>
