@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { validateLeadInput, getLeadDuplicateKey } from '../lib/leadValidation';
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -181,10 +182,20 @@ export default function Dashboard() {
 
   const handleCreateManualLead = async (e) => {
     e.preventDefault();
-    if (!newLeadData.name || !newLeadData.phone) { alert('الرجاء إدخال اسم ورقم هاتف العميل'); return; }
+    const validation = validateLeadInput(newLeadData);
+    if (!validation.valid) {
+      alert(Object.values(validation.errors).join('\n'));
+      return;
+    }
 
     try {
       const assignedTarget = (userRole === 'admin' || userRole === 'marketing') ? (newLeadData.assigned_to || null) : currentUser.id;
+      const duplicateKey = getLeadDuplicateKey(newLeadData);
+      const existingDuplicate = leads.find(l => getLeadDuplicateKey(l) === duplicateKey);
+      if (existingDuplicate) {
+        alert('العميل موجود بالفعل بنفس رقم الهاتف أو البريد الإلكتروني.');
+        return;
+      }
 
       const { error } = await supabase.from('leads').insert([{
         name: newLeadData.name,
@@ -273,17 +284,36 @@ export default function Dashboard() {
         const text = event.target.result;
         const lines = text.split('\n');
         let importedCount = 0;
+        let skippedCount = 0;
+        const seenKeys = new Set(leads.map(l => getLeadDuplicateKey(l)));
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
           const cols = line.split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
           const name = cols[0], phone = cols[1], email = cols[2] || '', lead_source = cols[3] || 'Imported';
-          if (name && phone) {
-            await supabase.from('leads').insert([{ name, phone, email, lead_source, status: 'New Lead', assigned_to: null }]);
-            importedCount++;
+          const validation = validateLeadInput({ name, phone, email });
+          if (!validation.valid) {
+            skippedCount++;
+            continue;
           }
+
+          const lead = { name, phone, email, lead_source, status: 'New Lead', assigned_to: null };
+          const duplicateKey = getLeadDuplicateKey(lead);
+          if (seenKeys.has(duplicateKey)) {
+            skippedCount++;
+            continue;
+          }
+
+          const { error } = await supabase.from('leads').insert([lead]);
+          if (error) {
+            skippedCount++;
+            continue;
+          }
+
+          seenKeys.add(duplicateKey);
+          importedCount++;
         }
-        alert(`تم استيراد ${importedCount} عميل بنجاح!`);
+        alert(`تم استيراد ${importedCount} عميل بنجاح! وتم تخطي ${skippedCount} سجل غير صالح أو مكرر.`);
         setShowImportModal(false);
         fetchData();
       } catch (err) { alert('حدث خطأ أثناء قراءة الملف.'); }
