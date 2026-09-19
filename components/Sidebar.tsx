@@ -30,12 +30,6 @@ export default function Sidebar() {
   const router = useRouter();
   const activeView = typeof router.query.view === 'string' ? router.query.view : 'overview';
 
-  const handleNavigation = async (event, view) => {
-    event.preventDefault();
-    if (activeView === view) return;
-    await router.push({ pathname: '/dashboard', query: { view } }, undefined, { shallow: true, scroll: false });
-  };
-
   return (
     <aside className="arcova-sidebar" dir="rtl">
       <div className="arcova-sidebar-content">
@@ -57,7 +51,8 @@ export default function Sidebar() {
                 key={item.view}
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
                 href={{ pathname: '/dashboard', query: { view: item.view } }}
-                onClick={(event) => handleNavigation(event, item.view)}
+                shallow
+                scroll={false}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
                 <ChevronLeft size={16} className="arcova-nav-arrow" />
