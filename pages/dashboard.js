@@ -1,8 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import Sidebar from '../components/Sidebar';
+import { useRouter } from 'next/router';
 import { validateLeadInput, getLeadDuplicateKey } from '../lib/leadValidation';
 
 export default function Dashboard() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState('sales'); // 'admin', 'sales', 'marketing'
@@ -75,6 +78,24 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const view = typeof router.query.view === 'string' ? router.query.view : 'overview';
+    const viewToTab = {
+      overview: 'list',
+      leads: 'list',
+      reminders: 'reminders',
+      projects: 'projects',
+      tasks: 'tasks',
+      campaigns: 'campaigns',
+      leaderboard: 'leaderboard',
+      audit: 'audit',
+      team: 'team'
+    };
+    const nextTab = viewToTab[view];
+    if (nextTab) setActiveTab(nextTab);
+  }, [router.isReady, router.query.view]);
 
   useEffect(() => {
     if (!audioEnabled) return;
@@ -439,7 +460,9 @@ export default function Dashboard() {
   if (loading) return <div style={{ color: '#d4af37', textAlign: 'center', padding: '5rem', backgroundColor: '#0c0f17', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl', display: 'flex' }}>
+      <Sidebar />
+      <div style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
 
       {/* --- شريط الهيدر المودرن (Modern Navbar) --- */}
       <header style={{ 
@@ -1165,6 +1188,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      </div>
     </div>
   );
 }
