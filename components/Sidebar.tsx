@@ -30,6 +30,12 @@ export default function Sidebar() {
   const router = useRouter();
   const activeView = typeof router.query.view === 'string' ? router.query.view : 'overview';
 
+  const handleNavigation = async (event, view) => {
+    event.preventDefault();
+    if (activeView === view) return;
+    await router.push({ pathname: '/dashboard', query: { view } }, undefined, { shallow: true, scroll: false });
+  };
+
   return (
     <aside className="arcova-sidebar" dir="rtl">
       <div className="arcova-sidebar-content">
@@ -51,6 +57,7 @@ export default function Sidebar() {
                 key={item.view}
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
                 href={{ pathname: '/dashboard', query: { view: item.view } }}
+                onClick={(event) => handleNavigation(event, item.view)}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
                 <ChevronLeft size={16} className="arcova-nav-arrow" />
@@ -66,69 +73,15 @@ export default function Sidebar() {
       </div>
 
       <style jsx>{`
-        .arcova-sidebar {
-          width: 240px;
-          min-width: 240px;
-          height: 100vh;
-          position: sticky;
-          top: 0;
-          display: flex;
-          flex-direction: column;
-          background: #020617;
-          border-left: 1px solid #1e293b;
-          padding: 16px;
-          color: #fff;
-          box-sizing: border-box;
-          z-index: 20;
-          overflow: hidden;
-          flex: 0 0 240px;
-        }
-        .arcova-sidebar-content {
-          min-height: 0;
-          flex: 1 1 auto;
-          overflow-y: auto;
-          overflow-x: hidden;
-          scrollbar-width: thin;
-          scrollbar-color: #475569 transparent;
-        }
-        .arcova-brand {
-          margin-bottom: 24px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          border-bottom: 1px solid #1e293b;
-          padding: 8px 8px 20px;
-        }
-        .arcova-brand-mark {
-          width: 44px;
-          height: 44px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-          border: 1px solid rgba(251,191,36,.7);
-          background: linear-gradient(135deg,#fcd34d,#d97706);
-          font-size: 1.2rem;
-          font-weight: 700;
-          color: #020617;
-          flex-shrink: 0;
-        }
+        .arcova-sidebar { width: 240px; min-width: 240px; height: 100vh; position: sticky; top: 0; display: flex; flex-direction: column; background: #020617; border-left: 1px solid #1e293b; padding: 16px; color: #fff; box-sizing: border-box; z-index: 20; overflow: hidden; flex: 0 0 240px; }
+        .arcova-sidebar-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #475569 transparent; }
+        .arcova-brand { margin-bottom: 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #1e293b; padding: 8px 8px 20px; }
+        .arcova-brand-mark { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(251,191,36,.7); background: linear-gradient(135deg,#fcd34d,#d97706); font-size: 1.2rem; font-weight: 700; color: #020617; flex-shrink: 0; }
         .arcova-brand-name { font-size: 1rem; font-weight: 700; letter-spacing: .18em; color: #fcd34d; }
         .arcova-brand-subtitle { margin-top: 2px; font-size: .6rem; font-weight: 600; letter-spacing: .16em; color: #94a3b8; }
         .arcova-menu-title { margin-bottom: 12px; padding: 0 12px; font-size: .65rem; font-weight: 700; letter-spacing: .12em; color: #64748b; }
         .arcova-nav { display: flex; flex-direction: column; gap: 8px; }
-        .arcova-nav-link {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          padding: 12px;
-          border-radius: 12px;
-          box-sizing: border-box;
-          color: #cbd5e1;
-          text-decoration: none;
-          transition: background .2s ease, color .2s ease, transform .2s ease;
-        }
+        .arcova-nav-link { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px; border-radius: 12px; box-sizing: border-box; color: #cbd5e1; text-decoration: none; transition: background .2s ease, color .2s ease, transform .2s ease; cursor: pointer; touch-action: manipulation; }
         .arcova-nav-link:hover { background: #0f172a; color: #fff; transform: translateX(-2px); }
         .arcova-nav-link.active { background: #fbbf24; color: #020617; box-shadow: 0 10px 25px rgba(245,158,11,.12); }
         .arcova-nav-label { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -139,15 +92,7 @@ export default function Sidebar() {
         .arcova-footer-title { font-size: .65rem; font-weight: 700; letter-spacing: .1em; color: #fcd34d; }
         .arcova-footer-text { margin-top: 4px; font-size: .65rem; color: #64748b; }
         @media (max-width: 768px) {
-          .arcova-sidebar {
-            width: 100%;
-            min-width: 0;
-            height: auto;
-            min-height: 0;
-            position: relative;
-            padding: 10px;
-            flex: 0 0 auto;
-          }
+          .arcova-sidebar { width: 100%; min-width: 0; height: auto; min-height: 0; position: relative; padding: 10px; flex: 0 0 auto; }
           .arcova-sidebar-content { flex: 0 0 auto; overflow: visible; }
           .arcova-brand { margin-bottom: 14px; padding-bottom: 12px; }
           .arcova-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
