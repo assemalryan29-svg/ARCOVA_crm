@@ -81,10 +81,11 @@ export default function Sidebar() {
           box-sizing: border-box;
           z-index: 20;
           overflow: hidden;
-          flex-shrink: 0;
+          flex: 0 0 240px;
         }
         .arcova-sidebar-content {
           min-height: 0;
+          flex: 1 1 auto;
           overflow-y: auto;
           overflow-x: hidden;
           scrollbar-width: thin;
@@ -138,9 +139,22 @@ export default function Sidebar() {
         .arcova-footer-title { font-size: .65rem; font-weight: 700; letter-spacing: .1em; color: #fcd34d; }
         .arcova-footer-text { margin-top: 4px; font-size: .65rem; color: #64748b; }
         @media (max-width: 768px) {
-          .arcova-sidebar { width: 100%; min-width: 0; height: auto; min-height: auto; position: relative; padding: 10px; }
-          .arcova-sidebar-content { overflow: visible; }
-          .arcova-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .arcova-sidebar {
+            width: 100%;
+            min-width: 0;
+            height: auto;
+            min-height: 0;
+            position: relative;
+            padding: 10px;
+            flex: 0 0 auto;
+          }
+          .arcova-sidebar-content { flex: 0 0 auto; overflow: visible; }
+          .arcova-brand { margin-bottom: 14px; padding-bottom: 12px; }
+          .arcova-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+          .arcova-nav-link { padding: 10px 8px; min-height: 44px; }
+          .arcova-nav-label { gap: 7px; }
+          .arcova-nav-label span { font-size: .76rem; }
+          .arcova-nav-arrow { display: none; }
           .arcova-sidebar-footer { margin-top: 12px; }
         }
       `}</style>
