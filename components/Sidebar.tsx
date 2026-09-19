@@ -31,70 +31,119 @@ export default function Sidebar() {
   const activeView = typeof router.query.view === 'string' ? router.query.view : 'overview';
 
   return (
-    <aside
-      dir="rtl"
-      style={{
-        width: '240px',
-        minWidth: '240px',
-        minHeight: '100vh',
-        position: 'sticky',
-        top: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        backgroundColor: '#020617',
-        borderLeft: '1px solid #1e293b',
-        padding: '1rem',
-        color: '#fff',
-        boxSizing: 'border-box',
-        zIndex: 20
-      }}
-    >
-      <div>
-        <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', borderBottom: '1px solid #1e293b', padding: '0.5rem 0.5rem 1.25rem' }}>
-          <div style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', border: '1px solid rgba(251,191,36,0.7)', background: 'linear-gradient(135deg,#fcd34d,#d97706)', fontSize: '1.2rem', fontWeight: 700, color: '#020617' }}>A</div>
+    <aside className="arcova-sidebar" dir="rtl">
+      <div className="arcova-sidebar-content">
+        <div className="arcova-brand">
+          <div className="arcova-brand-mark">A</div>
           <div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.18em', color: '#fcd34d' }}>ARCOVA</div>
-            <div style={{ marginTop: '0.15rem', fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.16em', color: '#94a3b8' }}>REAL ESTATE CRM</div>
+            <div className="arcova-brand-name">ARCOVA</div>
+            <div className="arcova-brand-subtitle">REAL ESTATE CRM</div>
           </div>
         </div>
 
-        <div style={{ marginBottom: '0.75rem', padding: '0 0.75rem', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', color: '#64748b' }}>القائمة الرئيسية</div>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className="arcova-menu-title">القائمة الرئيسية</div>
+        <nav className="arcova-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.view;
             return (
-              <Link key={item.view} href={{ pathname: '/dashboard', query: { view: item.view } }} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '0.75rem',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textDecoration: 'none',
-                  boxSizing: 'border-box',
-                  backgroundColor: isActive ? '#fbbf24' : 'transparent',
-                  color: isActive ? '#020617' : '#cbd5e1',
-                  boxShadow: isActive ? '0 10px 25px rgba(245, 158, 11, 0.12)' : 'none'
-                }}>
-                <span className="flex items-center gap-3"><Icon style={{ width: '18px', height: '18px' }} /><span>{item.name}</span></span>
-                <ChevronLeft className={`h-4 w-4 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-60'}`} />
+              <Link
+                key={item.view}
+                className={`arcova-nav-link ${isActive ? 'active' : ''}`}
+                href={{ pathname: '/dashboard', query: { view: item.view } }}
+              >
+                <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
+                <ChevronLeft size={16} className="arcova-nav-arrow" />
               </Link>
             );
           })}
         </nav>
       </div>
 
-      <div style={{ borderRadius: '12px', border: '1px solid #1e293b', backgroundColor: 'rgba(15,23,42,0.7)', padding: '0.75rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', color: '#fcd34d' }}>ARCOVA CRM</div>
-        <div style={{ marginTop: '0.25rem', fontSize: '0.65rem', color: '#64748b' }}>نظام إدارة العملاء والعقارات</div>
+      <div className="arcova-sidebar-footer">
+        <div className="arcova-footer-title">ARCOVA CRM</div>
+        <div className="arcova-footer-text">نظام إدارة العملاء والعقارات</div>
       </div>
+
+      <style jsx>{`
+        .arcova-sidebar {
+          width: 240px;
+          min-width: 240px;
+          height: 100vh;
+          position: sticky;
+          top: 0;
+          display: flex;
+          flex-direction: column;
+          background: #020617;
+          border-left: 1px solid #1e293b;
+          padding: 16px;
+          color: #fff;
+          box-sizing: border-box;
+          z-index: 20;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .arcova-sidebar-content {
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: thin;
+          scrollbar-color: #475569 transparent;
+        }
+        .arcova-brand {
+          margin-bottom: 24px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          border-bottom: 1px solid #1e293b;
+          padding: 8px 8px 20px;
+        }
+        .arcova-brand-mark {
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          border: 1px solid rgba(251,191,36,.7);
+          background: linear-gradient(135deg,#fcd34d,#d97706);
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: #020617;
+          flex-shrink: 0;
+        }
+        .arcova-brand-name { font-size: 1rem; font-weight: 700; letter-spacing: .18em; color: #fcd34d; }
+        .arcova-brand-subtitle { margin-top: 2px; font-size: .6rem; font-weight: 600; letter-spacing: .16em; color: #94a3b8; }
+        .arcova-menu-title { margin-bottom: 12px; padding: 0 12px; font-size: .65rem; font-weight: 700; letter-spacing: .12em; color: #64748b; }
+        .arcova-nav { display: flex; flex-direction: column; gap: 8px; }
+        .arcova-nav-link {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          padding: 12px;
+          border-radius: 12px;
+          box-sizing: border-box;
+          color: #cbd5e1;
+          text-decoration: none;
+          transition: background .2s ease, color .2s ease, transform .2s ease;
+        }
+        .arcova-nav-link:hover { background: #0f172a; color: #fff; transform: translateX(-2px); }
+        .arcova-nav-link.active { background: #fbbf24; color: #020617; box-shadow: 0 10px 25px rgba(245,158,11,.12); }
+        .arcova-nav-label { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .arcova-nav-label span { white-space: nowrap; font-size: .9rem; }
+        .arcova-nav-arrow { opacity: 0; flex-shrink: 0; }
+        .arcova-nav-link.active .arcova-nav-arrow, .arcova-nav-link:hover .arcova-nav-arrow { opacity: .8; }
+        .arcova-sidebar-footer { margin-top: auto; flex-shrink: 0; border-radius: 12px; border: 1px solid #1e293b; background: rgba(15,23,42,.7); padding: 12px; text-align: center; }
+        .arcova-footer-title { font-size: .65rem; font-weight: 700; letter-spacing: .1em; color: #fcd34d; }
+        .arcova-footer-text { margin-top: 4px; font-size: .65rem; color: #64748b; }
+        @media (max-width: 768px) {
+          .arcova-sidebar { width: 100%; min-width: 0; height: auto; min-height: auto; position: relative; padding: 10px; }
+          .arcova-sidebar-content { overflow: visible; }
+          .arcova-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .arcova-sidebar-footer { margin-top: 12px; }
+        }
+      `}</style>
     </aside>
   );
 }
-
-
-const _arcovaSidebarMobile = true;
