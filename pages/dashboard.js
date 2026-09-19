@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
 import { useRouter } from 'next/router';
+import { normalizeRole, getLeadScope, canManageUsers, canManageTeam } from '../lib/permissions';
 import { validateLeadInput, getLeadDuplicateKey } from '../lib/leadValidation';
 
 export default function Dashboard() {
@@ -152,15 +153,15 @@ export default function Dashboard() {
       setCurrentUser(session.user);
 
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
-      let role = roleData?.role || 'sales';
-      if (session.user.email === 'assemryan0@gmail.com') role = 'admin';
+      const role = normalizeRole(roleData?.role);
       setUserRole(role);
 
       const { data: usersData } = await supabase.from('user_roles').select('*');
       if (usersData) setTeamMembers(usersData || []);
 
       let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
-      if (role === 'sales') {
+      const leadScope = getLeadScope(role);
+      if (leadScope === 'own' || leadScope === 'team') {
         leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
       }
       const { data: leadsData } = await leadsQuery;
@@ -178,7 +179,7 @@ export default function Dashboard() {
       const { data: campData } = await supabase.from('campaigns').select('*').order('created_at', { ascending: false });
       if (campData) setCampaigns(campData || []);
 
-      if (role === 'admin') {
+      if (canManageUsers(role)) {
         const { data: auditData } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50);
         if (auditData) setAuditLogs(auditData || []);
       }
@@ -381,7 +382,7 @@ export default function Dashboard() {
   };
 
   const handleAssignLead = async (leadId, assigneeId) => {
-    if (userRole !== 'admin') return;
+    if (!canManageTeam(userRole)) return;
     const target = teamMembers.find(m => m.id === assigneeId);
     const { error } = await supabase.from('leads').update({ assigned_to: assigneeId || null }).eq('id', leadId);
     if (!error) {
