@@ -1,12 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
-import { useRouter } from 'next/router';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam } from '../lib/permissions';
 import { validateLeadInput, getLeadDuplicateKey } from '../lib/leadValidation';
 
 export default function Dashboard() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState('sales'); // 'admin', 'sales', 'marketing'
@@ -27,7 +25,23 @@ export default function Dashboard() {
   const [newFolderName, setNewFolderName] = useState('');
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('list');
+  const viewToTab = {
+    overview: 'list',
+    leads: 'list',
+    reminders: 'reminders',
+    projects: 'projects',
+    tasks: 'tasks',
+    campaigns: 'campaigns',
+    leaderboard: 'leaderboard',
+    audit: 'audit',
+    team: 'team'
+  };
+
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') return 'list';
+    const view = new URLSearchParams(window.location.search).get('view') || 'overview';
+    return viewToTab[view] || 'list';
+  });
   
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
@@ -78,43 +92,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
-
-  // الـDashboard هو مصدر التحكم الوحيد في التنقل بين الأقسام.
-  const viewToTab = {
-    overview: 'list',
-    leads: 'list',
-    reminders: 'reminders',
-    projects: 'projects',
-    tasks: 'tasks',
-    campaigns: 'campaigns',
-    leaderboard: 'leaderboard',
-    audit: 'audit',
-    team: 'team'
-  };
-
-  const handleSidebarNavigation = (view) => {
-    const nextTab = viewToTab[view] || 'list';
-    setActiveTab(nextTab);
-
-    // مزامنة العنوان بدون أي إعادة تحميل أو إعادة mount للصفحة.
-    if (typeof window !== 'undefined') {
-      const target = `/dashboard?view=${encodeURIComponent(view)}`;
-      window.history.replaceState({ view }, '', target);
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const syncViewFromUrl = () => {
-      const view = new URLSearchParams(window.location.search).get('view') || 'overview';
-      setActiveTab(viewToTab[view] || 'list');
-    };
-
-    syncViewFromUrl();
-    window.addEventListener('popstate', syncViewFromUrl);
-    return () => window.removeEventListener('popstate', syncViewFromUrl);
   }, []);
 
   useEffect(() => {
@@ -481,19 +458,14 @@ export default function Dashboard() {
 
   return (
     <div className="arcova-dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl', display: 'flex' }}>
-      <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} />
-      <div style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
+      <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={(view) => setActiveTab(viewToTab[view] || "list")} />
+      <div className="arcova-dashboard-content" style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
         <style jsx>{`
-          .arcova-dashboard-shell { flex-direction: row; }
+          .arcova-dashboard-shell { flex-direction: row; width: 100%; }
+          .arcova-dashboard-content { width: 100%; }
           @media (max-width: 768px) {
-            .arcova-dashboard-shell {
-              flex-direction: column;
-              width: 100%;
-              overflow-x: hidden;
-            }
-            .arcova-dashboard-shell > div:not(.arcova-sidebar) {
-              width: 100%;
-            }
+            .arcova-dashboard-shell { display: block; width: 100%; }
+            .arcova-dashboard-content { display: block; width: 100%; min-width: 0; }
           }
         `}</style>
 
