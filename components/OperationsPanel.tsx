@@ -17,7 +17,8 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
   const [appointments, setAppointments] = useState([]);
   const [payments, setPayments] = useState([]);
   const [busy, setBusy] = useState(false);
-  const canFinance = ['admin','ceo','manager','finance'].includes(userRole);
+  const canFinanceView = ['admin','ceo','manager','finance'].includes(userRole);
+  const canFinanceManage = ['admin','ceo','finance'].includes(userRole);
   const canOperate = ['admin','ceo','manager','team_leader','sales'].includes(userRole);
 
   const load = async () => {
@@ -53,7 +54,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
   return (
     <div style={{ display: 'grid', gap: '0.9rem' }}>
       <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-        {tabs.filter((t) => t.key !== 'finance' || canFinance).map((t) => <button key={t.key} type='button' onClick={() => setActive(t.key)} style={{ padding: '0.5rem 0.8rem', background: active === t.key ? '#d4af37' : '#131822', color: active === t.key ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '5px', cursor: 'pointer' }}>{t.label}</button>)}
+        {tabs.filter((t) => t.key !== 'finance' || canFinanceView).map((t) => <button key={t.key} type='button' onClick={() => setActive(t.key)} style={{ padding: '0.5rem 0.8rem', background: active === t.key ? '#d4af37' : '#131822', color: active === t.key ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '5px', cursor: 'pointer' }}>{t.label}</button>)}
       </div>
 
       {active === 'deals' && <div style={{ display: 'grid', gap: '0.7rem' }}>
@@ -107,7 +108,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       </div>}
 
       {active === 'finance' && canFinance && <div style={{ display:'grid',gap:'0.7rem' }}>
-        <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'deal_payments',{deal_id:f.get('deal_id'),installment_no:Number(f.get('installment_no')),due_date:f.get('due_date'),amount:Number(f.get('amount')),status:'Pending'},'فشل إضافة الدفعة');}} style={{ background:'#131822',padding:'0.8rem',borderRadius:'8px',border:'1px solid #1f2937',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
+        {canFinanceManage && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'deal_payments',{deal_id:f.get('deal_id'),installment_no:Number(f.get('installment_no')),due_date:f.get('due_date'),amount:Number(f.get('amount')),status:'Pending'},'فشل إضافة الدفعة');}} style={{ background:'#131822',padding:'0.8rem',borderRadius:'8px',border:'1px solid #1f2937',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
           <select name='deal_id' required style={selectStyle}><option value=''>الصفقة</option>{deals.map((d)=><option key={d.id} value={d.id}>{d.leads?.name||d.id}</option>)}</select>
           <Input name='installment_no' placeholder='رقم القسط' type='number' required />
           <Input name='due_date' placeholder='' type='date' required />
