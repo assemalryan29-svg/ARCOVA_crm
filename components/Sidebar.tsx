@@ -1,5 +1,4 @@
-import React from 'react';
-import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -26,13 +25,32 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-  const router = useRouter();
-  const activeView = typeof router.query.view === 'string' ? router.query.view : 'overview';
+  const [activeView, setActiveView] = useState('overview');
+
+  useEffect(() => {
+    const syncView = () => {
+      if (typeof window === 'undefined') return;
+      const view = new URLSearchParams(window.location.search).get('view') || 'overview';
+      setActiveView(view);
+    };
+
+    syncView();
+    window.addEventListener('popstate', syncView);
+    window.addEventListener('arcova:navigate', syncView);
+
+    return () => {
+      window.removeEventListener('popstate', syncView);
+      window.removeEventListener('arcova:navigate', syncView);
+    };
+  }, []);
 
   const handleNavigation = (view) => {
     if (typeof window === 'undefined') return;
+
     const target = `/dashboard?view=${encodeURIComponent(view)}`;
-    window.location.assign(target);
+    window.history.pushState({ view }, '', target);
+    setActiveView(view);
+    window.dispatchEvent(new Event('arcova:navigate'));
   };
 
   return (
@@ -57,7 +75,6 @@ export default function Sidebar() {
                 type="button"
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
                 onClick={() => handleNavigation(item.view)}
-                onTouchEnd={() => handleNavigation(item.view)}
                 aria-current={isActive ? 'page' : undefined}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
