@@ -480,9 +480,22 @@ export default function Dashboard() {
   if (loading) return <div style={{ color: '#d4af37', textAlign: 'center', padding: '5rem', backgroundColor: '#0c0f17', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl', display: 'flex' }}>
+    <div className="arcova-dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl', display: 'flex' }}>
       <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} />
       <div style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
+        <style jsx>{`
+          .arcova-dashboard-shell { flex-direction: row; }
+          @media (max-width: 768px) {
+            .arcova-dashboard-shell {
+              flex-direction: column;
+              width: 100%;
+              overflow-x: hidden;
+            }
+            .arcova-dashboard-shell > div:not(.arcova-sidebar) {
+              width: 100%;
+            }
+          }
+        `}</style>
 
       {/* --- شريط الهيدر المودرن (Modern Navbar) --- */}
       <header style={{ 
