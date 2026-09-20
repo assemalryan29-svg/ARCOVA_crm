@@ -1,5 +1,4 @@
 import React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
   LayoutDashboard,
@@ -30,6 +29,18 @@ export default function Sidebar() {
   const router = useRouter();
   const activeView = typeof router.query.view === 'string' ? router.query.view : 'overview';
 
+  const handleNavigation = async (view) => {
+    try {
+      await router.push(
+        { pathname: '/dashboard', query: { view } },
+        undefined,
+        { shallow: true, scroll: false }
+      );
+    } catch (error) {
+      console.error('Sidebar navigation error:', error);
+    }
+  };
+
   return (
     <aside className="arcova-sidebar" dir="rtl">
       <div className="arcova-sidebar-content">
@@ -42,21 +53,21 @@ export default function Sidebar() {
         </div>
 
         <div className="arcova-menu-title">القائمة الرئيسية</div>
-        <nav className="arcova-nav">
+        <nav className="arcova-nav" aria-label="القائمة الرئيسية">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.view;
             return (
-              <Link
+              <button
                 key={item.view}
+                type="button"
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
-                href={{ pathname: '/dashboard', query: { view: item.view } }}
-                shallow
-                scroll={false}
+                onClick={() => handleNavigation(item.view)}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
                 <ChevronLeft size={16} className="arcova-nav-arrow" />
-              </Link>
+              </button>
             );
           })}
         </nav>
@@ -76,7 +87,7 @@ export default function Sidebar() {
         .arcova-brand-subtitle { margin-top: 2px; font-size: .6rem; font-weight: 600; letter-spacing: .16em; color: #94a3b8; }
         .arcova-menu-title { margin-bottom: 12px; padding: 0 12px; font-size: .65rem; font-weight: 700; letter-spacing: .12em; color: #64748b; }
         .arcova-nav { display: flex; flex-direction: column; gap: 8px; }
-        .arcova-nav-link { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px; border-radius: 12px; box-sizing: border-box; color: #cbd5e1; text-decoration: none; transition: background .2s ease, color .2s ease, transform .2s ease; cursor: pointer; touch-action: manipulation; }
+        .arcova-nav-link { appearance: none; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px; border: 0; border-radius: 12px; box-sizing: border-box; color: #cbd5e1; background: transparent; text-decoration: none; transition: background .2s ease, color .2s ease, transform .2s ease; cursor: pointer; touch-action: manipulation; font: inherit; text-align: right; }
         .arcova-nav-link:hover { background: #0f172a; color: #fff; transform: translateX(-2px); }
         .arcova-nav-link.active { background: #fbbf24; color: #020617; box-shadow: 0 10px 25px rgba(245,158,11,.12); }
         .arcova-nav-label { display: flex; align-items: center; gap: 12px; min-width: 0; }
