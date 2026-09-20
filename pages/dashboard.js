@@ -452,7 +452,7 @@ export default function Dashboard() {
 
   const handleSaveFinancialPlan = async (e) => {
     e.preventDefault();
-    if (!selectedLead || !calcData.unitPrice || userRole === 'marketing') return;
+    if (!selectedLead || !calcData.unitPrice || !can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
     const price = parseFloat(calcData.unitPrice);
     const down = price * (calcData.downPaymentPercent / 100);
     const delivery = price * (calcData.deliveryPercent / 100);
@@ -1194,7 +1194,7 @@ export default function Dashboard() {
       )}
 
       {/* مودال إضافة وحدة */}
-      {showUnitModal && can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
+      {showUnitModal && can(userRole, PERMISSIONS.UNITS_MANAGE) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة وحدة</h3>
@@ -1233,7 +1233,7 @@ export default function Dashboard() {
       )}
 
       {/* مودال إضافة حملة */}
-      {showCampaignModal && can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
+      {showCampaignModal && can(userRole, PERMISSIONS.CAMPAIGNS_MANAGE) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة حملة إعلانية</h3>
