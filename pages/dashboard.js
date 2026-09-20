@@ -1046,9 +1046,13 @@ export default function Dashboard() {
               <input type="email" placeholder="البريد الإلكتروني" required value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="password" placeholder="كلمة المرور" required value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <select value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
-                <option value="sales">Sales Agent (مبيعات)</option>
+                <option value="sales">Sales (مبيعات)</option>
+                <option value="team_leader">Team Leader (قائد فريق)</option>
+                <option value="manager">Manager (مدير المبيعات)</option>
+                <option value="finance">Finance (المالية)</option>
                 <option value="marketing">Marketing (تسويق)</option>
-                <option value="admin">Admin (إدارة)</option>
+                <option value="ceo">CEO (الرئيس التنفيذي)</option>
+                <option value="admin">Admin (مدير النظام)</option>
               </select>
               <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
               <button type="button" onClick={() => setShowUserModal(false)} style={{ padding: '0.5rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
