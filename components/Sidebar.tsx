@@ -29,16 +29,10 @@ export default function Sidebar() {
   const router = useRouter();
   const activeView = typeof router.query.view === 'string' ? router.query.view : 'overview';
 
-  const handleNavigation = async (view) => {
-    try {
-      await router.push(
-        { pathname: '/dashboard', query: { view } },
-        undefined,
-        { shallow: true, scroll: false }
-      );
-    } catch (error) {
-      console.error('Sidebar navigation error:', error);
-    }
+  const handleNavigation = (view) => {
+    if (typeof window === 'undefined') return;
+    const target = `/dashboard?view=${encodeURIComponent(view)}`;
+    window.location.assign(target);
   };
 
   return (
@@ -63,6 +57,7 @@ export default function Sidebar() {
                 type="button"
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
                 onClick={() => handleNavigation(item.view)}
+                onTouchEnd={() => handleNavigation(item.view)}
                 aria-current={isActive ? 'page' : undefined}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
@@ -87,12 +82,12 @@ export default function Sidebar() {
         .arcova-brand-subtitle { margin-top: 2px; font-size: .6rem; font-weight: 600; letter-spacing: .16em; color: #94a3b8; }
         .arcova-menu-title { margin-bottom: 12px; padding: 0 12px; font-size: .65rem; font-weight: 700; letter-spacing: .12em; color: #64748b; }
         .arcova-nav { display: flex; flex-direction: column; gap: 8px; }
-        .arcova-nav-link { appearance: none; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px; border: 0; border-radius: 12px; box-sizing: border-box; color: #cbd5e1; background: transparent; text-decoration: none; transition: background .2s ease, color .2s ease, transform .2s ease; cursor: pointer; touch-action: manipulation; font: inherit; text-align: right; }
+        .arcova-nav-link { appearance: none; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px; border: 0; border-radius: 12px; box-sizing: border-box; color: #cbd5e1; background: transparent; transition: background .2s ease, color .2s ease, transform .2s ease; cursor: pointer; touch-action: manipulation; font: inherit; text-align: right; position: relative; z-index: 30; pointer-events: auto; }
         .arcova-nav-link:hover { background: #0f172a; color: #fff; transform: translateX(-2px); }
         .arcova-nav-link.active { background: #fbbf24; color: #020617; box-shadow: 0 10px 25px rgba(245,158,11,.12); }
-        .arcova-nav-label { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .arcova-nav-label { display: flex; align-items: center; gap: 12px; min-width: 0; pointer-events: none; }
         .arcova-nav-label span { white-space: nowrap; font-size: .9rem; }
-        .arcova-nav-arrow { opacity: 0; flex-shrink: 0; }
+        .arcova-nav-arrow { opacity: 0; flex-shrink: 0; pointer-events: none; }
         .arcova-nav-link.active .arcova-nav-arrow, .arcova-nav-link:hover .arcova-nav-arrow { opacity: .8; }
         .arcova-sidebar-footer { margin-top: auto; flex-shrink: 0; border-radius: 12px; border: 1px solid #1e293b; background: rgba(15,23,42,.7); padding: 12px; text-align: center; }
         .arcova-footer-title { font-size: .65rem; font-weight: 700; letter-spacing: .1em; color: #fcd34d; }
