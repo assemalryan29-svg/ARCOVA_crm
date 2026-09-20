@@ -31,7 +31,6 @@ const navItems = [
 ];
 
 export default function Sidebar({ activeView = 'overview', onNavigate, visibleViews = navItems.map((item) => item.view) }) {
-
   return (
     <aside className="arcova-sidebar" dir="rtl">
       <div className="arcova-sidebar-content">
@@ -48,7 +47,7 @@ export default function Sidebar({ activeView = 'overview', onNavigate, visibleVi
           {navItems.filter((item) => visibleViews.includes(item.view)).map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.view;
-                        return (
+            return (
               <a
                 key={item.view}
                 href={`#${item.view}`}
@@ -75,7 +74,24 @@ export default function Sidebar({ activeView = 'overview', onNavigate, visibleVi
       </div>
 
       <style jsx>{`
-        .arcova-sidebar { isolation: isolate; width: 240px; min-width: 240px; height: 100vh; position: sticky; top: 0; display: flex; flex-direction: column; background: #020617; border-left: 1px solid #1e293b; padding: 16px; color: #fff; box-sizing: border-box; z-index: 20; overflow: visible; flex: 0 0 240px; }
+        .arcova-sidebar {
+          isolation: isolate;
+          width: 240px;
+          min-width: 240px;
+          height: 100vh;
+          position: sticky;
+          top: 0;
+          display: flex;
+          flex-direction: column;
+          background: #020617;
+          border-left: 1px solid #1e293b;
+          padding: 16px;
+          color: #fff;
+          box-sizing: border-box;
+          z-index: 20;
+          overflow: visible;
+          flex: 0 0 240px;
+        }
         .arcova-sidebar-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #475569 transparent; }
         .arcova-brand { margin-bottom: 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #1e293b; padding: 8px 8px 20px; }
         .arcova-brand-mark { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(251,191,36,.7); background: linear-gradient(135deg,#fcd34d,#d97706); font-size: 1.2rem; font-weight: 700; color: #020617; flex-shrink: 0; }
@@ -94,13 +110,27 @@ export default function Sidebar({ activeView = 'overview', onNavigate, visibleVi
         .arcova-footer-title { font-size: .65rem; font-weight: 700; letter-spacing: .1em; color: #fcd34d; }
         .arcova-footer-text { margin-top: 4px; font-size: .65rem; color: #64748b; }
         @media (max-width: 768px) {
-          .arcova-sidebar { position: relative; z-index: 9999; isolation: isolate; width: 100%; min-width: 0; height: auto; min-height: 0; position: relative; padding: 10px; flex: 0 0 auto; }
-          .arcova-sidebar-content { flex: 0 0 auto; overflow: visible; }
+          .arcova-sidebar {
+            position: relative;
+            z-index: 20;
+            isolation: isolate;
+            display: block;
+            width: 100% !important;
+            max-width: 100vw;
+            min-width: 0 !important;
+            height: auto;
+            min-height: 0;
+            padding: 10px;
+            flex: 0 0 auto;
+            align-self: stretch;
+            overflow: hidden;
+          }
+          .arcova-sidebar-content { display: block; min-width: 0; width: 100%; overflow: visible; }
           .arcova-brand { margin-bottom: 14px; padding-bottom: 12px; }
-          .arcova-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-          .arcova-nav-link { padding: 10px 8px; min-height: 44px; }
-          .arcova-nav-label { gap: 7px; }
-          .arcova-nav-label span { font-size: .76rem; }
+          .arcova-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: 100%; }
+          .arcova-nav-link { min-width: 0; width: 100%; padding: 10px 8px; min-height: 44px; }
+          .arcova-nav-label { min-width: 0; gap: 7px; }
+          .arcova-nav-label span { overflow: hidden; text-overflow: ellipsis; font-size: .76rem; }
           .arcova-nav-arrow { display: none; }
           .arcova-sidebar-footer { margin-top: 12px; }
         }
