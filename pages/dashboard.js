@@ -97,10 +97,10 @@ export default function Dashboard() {
     const nextTab = viewToTab[view] || 'list';
     setActiveTab(nextTab);
 
-    // حفظ القسم في الـURL بدون إعادة تحميل الصفحة.
+    // مزامنة العنوان بدون أي إعادة تحميل أو إعادة mount للصفحة.
     if (typeof window !== 'undefined') {
       const target = `/dashboard?view=${encodeURIComponent(view)}`;
-      window.history.pushState({ view }, '', target);
+      window.history.replaceState({ view }, '', target);
     }
   };
 
