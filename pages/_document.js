@@ -20,17 +20,13 @@ export default function Document() {
           button:active { transform: translateY(0); }
           button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
 
-          /* حذف شريط التبويبات القديم الموجود مباشرة بعد الهيدر */
-          .arcova-dashboard-content > header + div,
-          .arcova-dashboard-content > header + div[style*="border-bottom"],
-          .arcova-dashboard-content > header + div[style*="background-color"] { display: none !important; visibility: hidden !important; height: 0 !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; border: 0 !important; overflow: hidden !important; }
-
           @media (max-width: 768px) {
             .arcova-dashboard-content > header { padding: 12px !important; gap: 10px !important; flex-wrap: wrap !important; }
             .arcova-dashboard-content > header > div { max-width: 100%; min-width: 0; flex-wrap: wrap; }
-            .arcova-dashboard-content main { padding: 12px !important; width: 100% !important; min-width: 0 !important; }
-            .arcova-dashboard-content main table { min-width: 620px; }
-            .arcova-dashboard-content main > div { max-width: 100%; }
+            .arcova-dashboard-content main { padding: 12px !important; width: 100% !important; min-width: 0 !important; max-width: 100vw !important; overflow-x: hidden !important; }
+            .arcova-dashboard-content main table { width: 100%; max-width: 100%; min-width: 0 !important; table-layout: auto; }
+            .arcova-dashboard-content main > div { max-width: 100%; min-width: 0; }
+            .arcova-dashboard-content input, .arcova-dashboard-content select, .arcova-dashboard-content textarea { min-width: 0 !important; width: 100%; }
           }
         `}</style>
       </Head>
