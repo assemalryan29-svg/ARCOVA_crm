@@ -5,6 +5,7 @@ import PipelineBoard from '../components/PipelineBoard';
 import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
+import FollowupsPanel from '../components/FollowupsPanel';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
 
@@ -23,14 +24,15 @@ export default function Dashboard() {
   const [auditLogs, setAuditLogs] = useState([]);
   
   // المجلدات والفلاتر الجديدة
-  const [folders, setFolders] = useState(['عملاء التجمع', 'متابعة حارة', 'أرشيف 2026']);
+  const [folders, setFolders] = useState([]);
+  const [followups, setFollowups] = useState([]);
   const [selectedFolderFilter, setSelectedFolderFilter] = useState('');
   const [selectedCampaignFilter, setSelectedCampaignFilter] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 
   const viewToTab = {
-    overview: 'list',
+    overview: 'overview',
     leads: 'list',
     reminders: 'reminders',
     projects: 'projects',
@@ -45,9 +47,9 @@ export default function Dashboard() {
   };
 
   const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window === 'undefined') return 'list';
-    const view = window.location.hash.replace('#', '') || 'leads';
-    return viewToTab[view] || 'list';
+    if (typeof window === 'undefined') return 'overview';
+    const view = window.location.hash.replace('#', '') || 'overview';
+    return viewToTab[view] || 'overview';
   });
   
   const [showUserModal, setShowUserModal] = useState(false);
@@ -214,6 +216,12 @@ export default function Dashboard() {
       const { data: campData } = await supabase.from('campaigns').select('*').order('created_at', { ascending: false });
       if (campData) setCampaigns(campData || []);
 
+      const { data: folderData } = await supabase.from('lead_folders').select('id,name,active').eq('active', true).order('name');
+      if (folderData) setFolders(folderData.map((folder) => folder.name));
+
+      const { data: followupData } = await supabase.from('followups').select('*, leads(name,phone)').order('followup_date', { ascending: true });
+      if (followupData) setFollowups(followupData || []);
+
       if (canManageUsers(role)) {
         const { data: auditData } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50);
         if (auditData) setAuditLogs(auditData || []);
@@ -246,7 +254,7 @@ export default function Dashboard() {
     }
 
     try {
-      const assignedTarget = can(userRole, PERMISSIONS.PROJECTS_MANAGE) ? (newLeadData.assigned_to || null) : currentUser.id;
+      const assignedTarget = canManageTeam(userRole) ? (newLeadData.assigned_to || null) : currentUser.id;
       const existingDuplicate = leads.find((l) => isDuplicateLead(l, newLeadData));
       if (existingDuplicate) {
         alert('العميل موجود بالفعل بنفس رقم الهاتف أو البريد الإلكتروني.');
@@ -303,12 +311,28 @@ export default function Dashboard() {
     if (!error) { setShowCampaignModal(false); setNewCampaignData({ name: '', platform: '', budget: '', status: 'Active' }); fetchData(); alert('تم إضافة الحملة'); }
   };
 
-  const handleCreateFolder = (e) => {
+  const handleCreateFolder = async (e) => {
     e.preventDefault();
-    if (!newFolderName.trim()) return;
-    if (!folders.includes(newFolderName.trim())) {
-      setFolders([...folders, newFolderName.trim()]);
+    const name = newFolderName.trim();
+    if (!name || !can(userRole, PERMISSIONS.LEADS_CREATE)) return;
+    if (folders.includes(name)) {
+      setNewFolderName('');
+      setShowCreateFolderModal(false);
+      return;
     }
+
+    const { error } = await supabase.from('lead_folders').insert([{
+      name,
+      created_by: currentUser.id,
+      active: true
+    }]);
+
+    if (error) {
+      alert('فشل إنشاء المجلد: ' + error.message);
+      return;
+    }
+
+    setFolders((prev) => [...prev, name].sort());
     setNewFolderName('');
     setShowCreateFolderModal(false);
   };
@@ -411,12 +435,40 @@ export default function Dashboard() {
 
   const handleSaveFollowUp = async (leadId, dateValue) => {
     if (!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)) return;
-    const { error } = await supabase.from('leads').update({ next_follow_up: dateValue || null }).eq('id', leadId);
-    if (!error) {
-      setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
-      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Follow-up Set', content: `تم جدولة متابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}` }]);
-      if (selectedLead?.id === leadId) { setSelectedLead(prev => ({ ...prev, next_follow_up: dateValue })); fetchLeadLogs(leadId); }
+
+    const { error: leadError } = await supabase
+      .from('leads')
+      .update({ next_follow_up: dateValue || null })
+      .eq('id', leadId);
+
+    if (leadError) {
+      alert('فشل تحديث متابعة العميل: ' + leadError.message);
+      return;
     }
+
+    if (dateValue) {
+      await supabase.from('followups').insert([{
+        lead_id: leadId,
+        assigned_to: currentUser.id,
+        followup_date: new Date(dateValue).toISOString(),
+        type: 'Call',
+        status: 'Pending'
+      }]);
+    } else {
+      await supabase.from('followups')
+        .update({ status: 'Cancelled' })
+        .eq('lead_id', leadId)
+        .eq('status', 'Pending');
+    }
+
+    setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
+    await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Follow-up Set', content: `تم جدولة متابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}` }]);
+    if (selectedLead?.id === leadId) {
+      setSelectedLead(prev => ({ ...prev, next_follow_up: dateValue }));
+      fetchLeadLogs(leadId);
+    }
+    const { data: updatedFollowups } = await supabase.from('followups').select('*, leads(name,phone)').order('followup_date', { ascending: true });
+    setFollowups(updatedFollowups || []);
   };
 
   const handleAddLogNote = async (e) => {
@@ -520,7 +572,7 @@ export default function Dashboard() {
   });
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const dueFollowUps = leads.filter(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
+  const dueFollowUps = followups.filter((f) => f.status === 'Pending' && f.followup_date && new Date(f.followup_date).toISOString().slice(0, 10) <= todayStr);
 
   const totalLeadsCount = leads.length;
   const interestedCount = leads.filter(l => l.status === 'Interested').length;
@@ -645,6 +697,7 @@ export default function Dashboard() {
       </div>
 
       <main style={{ padding: '1.5rem' }}>
+        {activeTab === 'overview' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ backgroundColor: '#131822', border: '1px solid #1f2937', borderRight: '4px solid #d4af37', padding: '1rem', borderRadius: '6px' }}>
             <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>إجمالي العملاء</div>
@@ -667,6 +720,8 @@ export default function Dashboard() {
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#a855f7', marginTop: '0.3rem' }}>{totalDealsValue.toLocaleString()} ج</div>
           </div>
         </div>
+
+        )}
 
         {activeTab === 'pipeline' && can(userRole, PERMISSIONS.PIPELINE_VIEW) && (
           <PipelineBoard leads={filteredLeads} statusOptions={statusOptions} onStatusChange={handleUpdateLeadStatus} onOpenLead={handleOpenLeadDetails} />
@@ -838,6 +893,10 @@ export default function Dashboard() {
               </table>
             </div>
           </div>
+        )}
+
+        {activeTab === 'reminders' && can(userRole, PERMISSIONS.FOLLOWUPS_VIEW) && (
+          <FollowupsPanel currentUser={currentUser} userRole={userRole} leads={leads} />
         )}
 
         {activeTab === 'reminders' && (
