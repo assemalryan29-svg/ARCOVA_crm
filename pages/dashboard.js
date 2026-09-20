@@ -5,7 +5,7 @@ import PipelineBoard from '../components/PipelineBoard';
 import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
-import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
+import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { validateLeadInput, getLeadDuplicateKey } from '../lib/leadValidation';
 
 export default function Dashboard() {
@@ -246,7 +246,7 @@ export default function Dashboard() {
     }
 
     try {
-      const assignedTarget = (userRole === 'admin' || userRole === 'marketing') ? (newLeadData.assigned_to || null) : currentUser.id;
+      const assignedTarget = can(userRole, PERMISSIONS.PROJECTS_MANAGE) ? (newLeadData.assigned_to || null) : currentUser.id;
       const duplicateKey = getLeadDuplicateKey(newLeadData);
       const existingDuplicate = leads.find(l => getLeadDuplicateKey(l) === duplicateKey);
       if (existingDuplicate) {
@@ -379,7 +379,7 @@ export default function Dashboard() {
   };
 
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
-    if (userRole === 'marketing') return; // منع الماركتنج من تغيير الحالة
+    if (!can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
     const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
     if (!error) {
       setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
@@ -390,7 +390,7 @@ export default function Dashboard() {
 
   const handleSaveLeadExtendedDetails = async (e) => {
     e.preventDefault();
-    if (!selectedLead || userRole === 'marketing') return;
+    if (!selectedLead || !can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
     const { error } = await supabase.from('leads').update({
       budget: selectedLead.budget ? parseFloat(selectedLead.budget) : null,
       preferred_area: selectedLead.preferred_area,
@@ -400,7 +400,7 @@ export default function Dashboard() {
   };
 
   const handleSaveFollowUp = async (leadId, dateValue) => {
-    if (userRole === 'marketing') return;
+    if (!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)) return;
     const { error } = await supabase.from('leads').update({ next_follow_up: dateValue || null }).eq('id', leadId);
     if (!error) {
       setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
@@ -493,11 +493,26 @@ export default function Dashboard() {
   const conversionRate = totalLeadsCount > 0 ? ((closedWonCount / totalLeadsCount) * 100).toFixed(1) : 0;
   const totalDealsValue = leads.filter(l => l.status === 'Closed Won' && l.budget).reduce((acc, curr) => acc + Number(curr.budget), 0);
 
+  const visibleViews = [
+    ['overview', PERMISSIONS.DASHBOARD_VIEW],
+    ['leads', PERMISSIONS.LEADS_VIEW],
+    ['pipeline', PERMISSIONS.PIPELINE_VIEW],
+    ['reminders', PERMISSIONS.FOLLOWUPS_VIEW],
+    ['projects', PERMISSIONS.PROJECTS_VIEW],
+    ['tasks', PERMISSIONS.TASKS_VIEW],
+    ['campaigns', PERMISSIONS.CAMPAIGNS_VIEW],
+    ['operations', PERMISSIONS.DEALS_VIEW],
+    ['reports', PERMISSIONS.REPORTS_VIEW],
+    ['leaderboard', PERMISSIONS.REPORTS_VIEW],
+    ['audit', PERMISSIONS.AUDIT_VIEW],
+    ['team', PERMISSIONS.TEAMS_VIEW]
+  ].filter(([, permission]) => can(userRole, permission)).map(([view]) => view);
+
   if (loading) return <div style={{ color: '#d4af37', textAlign: 'center', padding: '5rem', backgroundColor: '#0c0f17', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
     <div className="arcova-dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
-      <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} />
+      <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} visibleViews={visibleViews} />
       <div className="arcova-dashboard-content" style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
         <style jsx>{`
           .arcova-dashboard-shell { display: flex; flex-direction: row; width: 100%; }
@@ -583,11 +598,13 @@ export default function Dashboard() {
           <button onClick={() => setActiveTab('projects')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'projects' ? '#d4af37' : 'transparent', color: activeTab === 'projects' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏢 المشاريع والوحدات</button>
           <button onClick={() => setActiveTab('campaigns')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'campaigns' ? '#d4af37' : 'transparent', color: activeTab === 'campaigns' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📢 الحملات</button>
           {can(userRole, PERMISSIONS.REPORTS_VIEW) && (
-            <>
-              <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات</button>
-              {can(userRole, PERMISSIONS.AUDIT_VIEW) && <button onClick={() => setActiveTab('audit')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'audit' ? '#d4af37' : 'transparent', color: activeTab === 'audit' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🛡️ سجل التدقيق</button>
-              <button onClick={() => setActiveTab('team')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>فريق العمل</button>
-            </>
+            <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات</button>
+          )}
+          {can(userRole, PERMISSIONS.AUDIT_VIEW) && (
+            <button onClick={() => setActiveTab('audit')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'audit' ? '#d4af37' : 'transparent', color: activeTab === 'audit' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🛡️ سجل التدقيق</button>
+          )}
+          {can(userRole, PERMISSIONS.TEAMS_VIEW) && (
+            <button onClick={() => setActiveTab('team')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>فريق العمل</button>
           )}
         </div>
       </div>
@@ -740,7 +757,7 @@ export default function Dashboard() {
                       </td>
                       <td style={{ padding: '0.8rem' }}>
                         {/* الماركتنج ممنوع من تغيير حالة العميل */}
-                        <select disabled={userRole === 'marketing'} value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
+                        <select disabled={!canManageInventory(userRole)} value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
                           {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                       </td>
@@ -887,7 +904,7 @@ export default function Dashboard() {
                       <td style={{ padding: '0.8rem', color: '#9ca3af' }}>{unit.area ? `${unit.area} م²` : '-'}</td>
                       <td style={{ padding: '0.8rem', color: '#34d399' }}>{unit.price ? `${Number(unit.price).toLocaleString()} ج.م` : '-'}</td>
                       <td style={{ padding: '0.8rem' }}>
-                        <select value={unit.status || 'Available'} onChange={(e) => handleUpdateUnitStatus(unit.id, e.target.value)} disabled={userRole === 'marketing'} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: unit.status === 'Sold' ? '#f87171' : '#34d399', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        <select value={unit.status || 'Available'} onChange={(e) => handleUpdateUnitStatus(unit.id, e.target.value)} disabled={!canManageInventory(userRole)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: unit.status === 'Sold' ? '#f87171' : '#34d399', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
                           <option value="Available">متاحة</option>
                           <option value="Reserved">محجوزة</option>
                           <option value="Sold">مباعة</option>
@@ -905,7 +922,7 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة الحملات التسويقية</h3>
-              {(userRole === 'admin' || userRole === 'marketing') && (
+              {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
                 <button onClick={() => setShowCampaignModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة حملة</button>
               )}
             </div>
@@ -922,7 +939,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'leaderboard' && userRole === 'admin' && (
+        {activeTab === 'leaderboard' && can(userRole, PERMISSIONS.REPORTS_VIEW) && (
           <div style={{ backgroundColor: '#131822', padding: '1.2rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem', marginBottom: '1rem' }}>🏆 أداء المبيعات (Leaderboard)</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
@@ -947,7 +964,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'audit' && userRole === 'admin' && (
+        {activeTab === 'audit' && can(userRole, PERMISSIONS.AUDIT_VIEW) && (
           <div style={{ backgroundColor: '#131822', padding: '1.2rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem', marginBottom: '1rem' }}>🛡️ سجل التدقيق والأنشطة (Audit Logs)</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -965,20 +982,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'team' && can(userRole, PERMISSIONS.TEAMS_VIEW) && (
-          <div style={{ backgroundColor: '#131822', padding: '1.2rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
-            <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem', marginBottom: '1rem' }}>إدارة فريق العمل</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-              {teamMembers.map(member => (
-                <div key={member.id} style={{ backgroundColor: '#0c0f17', padding: '1rem', borderRadius: '6px', border: '1px solid #1f2937', textAlign: 'center' }}>
-                  <div style={{ width: '50px', height: '50px', backgroundColor: '#374151', borderRadius: '50%', margin: '0 auto 0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d4af37', fontSize: '1.2rem' }}>👤</div>
-                  <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }}>{member.email}</div>
-                  <div style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: '0.3rem' }}>
-                    الدور: {member.role === 'admin' ? 'مدير' : member.role === 'marketing' ? 'تسويق' : 'مبيعات'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <TeamController userRole={userRole} onSaved={fetchData} />
         )}
       </main>
 
@@ -1030,10 +1034,10 @@ export default function Dashboard() {
             <form onSubmit={handleSaveLeadExtendedDetails} style={{ backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ fontSize: '0.8rem', color: '#d4af37', fontWeight: 'bold' }}>بيانات الاهتمام العقاري:</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <input type="number" disabled={userRole === 'marketing'} placeholder="الميزانية" value={selectedLead.budget || ''} onChange={(e) => setSelectedLead({...selectedLead, budget: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
-                <input type="text" disabled={userRole === 'marketing'} placeholder="المنطقة المفضلة" value={selectedLead.preferred_area || ''} onChange={(e) => setSelectedLead({...selectedLead, preferred_area: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
+                <input type="number" disabled={!canManageInventory(userRole)} placeholder="الميزانية" value={selectedLead.budget || ''} onChange={(e) => setSelectedLead({...selectedLead, budget: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
+                <input type="text" disabled={!canManageInventory(userRole)} placeholder="المنطقة المفضلة" value={selectedLead.preferred_area || ''} onChange={(e) => setSelectedLead({...selectedLead, preferred_area: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
               </div>
-              <select disabled={userRole === 'marketing'} value={selectedLead.desired_unit_type || 'شقة'} onChange={(e) => setSelectedLead({...selectedLead, desired_unit_type: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
+              <select disabled={!canManageInventory(userRole)} value={selectedLead.desired_unit_type || 'شقة'} onChange={(e) => setSelectedLead({...selectedLead, desired_unit_type: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
                 <option value="شقة">شقة</option>
                 <option value="فيلا">فيلا</option>
                 <option value="تاون هاوس">تاون هاوس</option>
@@ -1048,7 +1052,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: '#d4af37' }}>الحالة:</span>
                 {/* الماركتنج ممنوع من تغيير حالة العميل */}
-                <select disabled={userRole === 'marketing'} value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
+                <select disabled={!canManageInventory(userRole)} value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
                   {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
@@ -1057,7 +1061,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <span style={{ color: '#d4af37', fontSize: '0.8rem' }}>موعد المتابعة:</span>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
-                  <input type="datetime-local" disabled={userRole === 'marketing'} value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ flex: 1, padding: '0.3rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
+                  <input type="datetime-local" disabled={!canManageInventory(userRole)} value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ flex: 1, padding: '0.3rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
                   {userRole !== 'marketing' && (
                     <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>حفظ</button>
                   )}
@@ -1146,7 +1150,7 @@ export default function Dashboard() {
                 {folders.map((f, i) => <option key={i} value={f}>{f}</option>)}
               </select>
 
-              {(userRole === 'admin' || userRole === 'marketing') && (
+              {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
                 <select value={newLeadData.assigned_to} onChange={(e) => setNewLeadData({...newLeadData, assigned_to: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
                   <option value="">إسناد العميل إلى... (اختياري)</option>
                   {teamMembers.map(m => <option key={m.id} value={m.id}>{m.email}</option>)}
@@ -1175,7 +1179,7 @@ export default function Dashboard() {
       )}
 
       {/* مودال إضافة مشروع */}
-      {showProjectModal && (userRole === 'admin' || userRole === 'marketing') && (
+      {showProjectModal && can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة مشروع</h3>
@@ -1190,7 +1194,7 @@ export default function Dashboard() {
       )}
 
       {/* مودال إضافة وحدة */}
-      {showUnitModal && (userRole === 'admin' || userRole === 'marketing') && (
+      {showUnitModal && can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة وحدة</h3>
@@ -1229,7 +1233,7 @@ export default function Dashboard() {
       )}
 
       {/* مودال إضافة حملة */}
-      {showCampaignModal && (userRole === 'admin' || userRole === 'marketing') && (
+      {showCampaignModal && can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة حملة إعلانية</h3>
