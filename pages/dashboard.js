@@ -921,7 +921,7 @@ export default function Dashboard() {
                         {lead.next_follow_up ? new Date(lead.next_follow_up).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'غير محدد'}
                       </td>
                       <td style={{ padding: '0.8rem' }}>
-                        {userRole === 'admin' ? (
+                        {canManageTeam(userRole) ? (
                           <select value={lead.assigned_to || ''} onChange={(e) => handleAssignLead(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
                             <option value="">غير مخصص</option>
                             {teamMembers.map(m => <option key={m.id} value={m.id}>{m.email}</option>)}
@@ -1195,7 +1195,7 @@ export default function Dashboard() {
                 <span style={{ color: '#d4af37', fontSize: '0.8rem' }}>موعد المتابعة:</span>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
                   <input type="datetime-local" disabled={!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)} value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ flex: 1, padding: '0.3rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
-                  {userRole !== 'marketing' && (
+                  {can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE) && (
                     <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>حفظ</button>
                   )}
                 </div>
@@ -1203,7 +1203,7 @@ export default function Dashboard() {
             </div>
 
             {/* حاسبة الأقساط التفاعلية - ممنوع للماركتنج */}
-            {userRole !== 'marketing' && (
+            {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
               <div style={{ backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937' }}>
                 <h4 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '0.9rem', marginTop: 0, marginBottom: '0.5rem' }}>🧮 حاسبة الأقساط التفاعلية</h4>
                 <form onSubmit={handleSaveFinancialPlan} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
