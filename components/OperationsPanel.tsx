@@ -114,7 +114,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
           <Input name='due_date' placeholder='' type='date' required />
           <Input name='amount' placeholder='قيمة القسط' type='number' required />
           <button disabled={busy} type='submit' style={{ background:'#34d399',border:0,borderRadius:'5px',fontWeight:700 }}>إضافة دفعة</button>
-        </form>
+        </form>}
         <div style={{ display:'grid',gap:'0.5rem' }}>{payments.map((p)=><div key={p.id} style={{ background:'#131822',border:'1px solid #1f2937',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem' }}>قسط {p.installment_no} · {Number(p.amount||0).toLocaleString()} ج · {p.status} · {p.due_date}</div>)}</div>
       </div>}
     </div>
