@@ -1,120 +1,305 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-const fallbackRoles = [
-  { key: 'admin', name_ar: 'مدير النظام' },
-  { key: 'ceo', name_ar: 'الرئيس التنفيذي' },
-  { key: 'manager', name_ar: 'مدير المبيعات' },
-  { key: 'team_leader', name_ar: 'قائد فريق' },
-  { key: 'sales', name_ar: 'Sales' },
-  { key: 'finance', name_ar: 'المالية' },
-  { key: 'marketing', name_ar: 'التسويق' }
+const ROLE_OPTIONS = [
+  ['admin', 'مدير النظام'],
+  ['ceo', 'الرئيس التنفيذي'],
+  ['manager', 'مدير المبيعات'],
+  ['team_leader', 'قائد فريق'],
+  ['sales', 'Sales'],
+  ['finance', 'المالية'],
+  ['marketing', 'Marketing'],
+  ['operations', 'العمليات'],
+  ['support', 'الدعم']
 ];
 
+const normalize = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, '_');
+
 export default function TeamController({ userRole = 'sales', onSaved }) {
-  const canControl = ['admin', 'ceo'].includes(userRole);
-  const canManageStructure = ['admin', 'ceo', 'manager'].includes(userRole);
+  const role = normalize(userRole);
+  const canControlRoles = role === 'admin' || role === 'ceo';
+  const canManageStructure = canControlRoles || role === 'manager';
+
   const [profiles, setProfiles] = useState([]);
-  const [roles, setRoles] = useState([]);
   const [teams, setTeams] = useState([]);
   const [drafts, setDrafts] = useState({});
-  const [newTeamName, setNewTeamName] = useState('');
-  const [newTeamManager, setNewTeamManager] = useState('');
-  const [newTeamLeader, setNewTeamLeader] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const [teamName, setTeamName] = useState('');
+  const [teamManager, setTeamManager] = useState('');
+  const [teamLeader, setTeamLeader] = useState('');
 
   const load = async () => {
     setLoading(true);
-    const [p, ur, r, t] = await Promise.all([
+    setMessage('');
+
+    const [profilesResult, rolesResult, teamsResult] = await Promise.all([
       supabase.from('profiles').select('id,email,full_name,role,active,team_leader_id,manager_id,team_id').order('email'),
-      supabase.from('user_roles').select('id,email,role,active'),
-      supabase.from('app_roles').select('key,name_ar,name_en').order('name_ar'),
+      supabase.from('user_roles').select('id,role,active'),
       supabase.from('teams').select('id,name,manager_id,leader_id,active').order('name')
     ]);
 
-    const roleById = new Map((ur.data || []).map((row) => [row.id, row]));
-    const mergedProfiles = (p.data || []).map((profile) => {
-      const sourceRole = roleById.get(profile.id);
-      return sourceRole
-        ? { ...profile, role: sourceRole.role, active: sourceRole.active !== false }
-        : profile;
+    if (profilesResult.error || rolesResult.error || teamsResult.error) {
+      setMessage('تعذر تحميل بيانات الموظفين أو الصلاحيات.');
+    }
+
+    const roleById = new Map((rolesResult.data || []).map((item) => [item.id, item]));
+    const merged = (profilesResult.data || []).map((profile) => {
+      const source = roleById.get(profile.id);
+      return {
+        ...profile,
+        role: normalize(source?.role || profile.role || 'sales'),
+        active: source?.active !== false && profile.active !== false
+      };
     });
 
-    setProfiles(mergedProfiles);
-    setRoles(r.data || []);
-    setTeams(t.data || []);
+    setProfiles(merged);
+    setTeams(teamsResult.data || []);
+    setDrafts({});
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
-  const managers = useMemo(() => profiles.filter((p) => ['admin','ceo','manager'].includes(String(p.role || '').toLowerCase())), [profiles]);
-  const leaders = useMemo(() => profiles.filter((p) => String(p.role || '').toLowerCase() === 'team_leader'), [profiles]);
+  const managers = useMemo(
+    () => profiles.filter((p) => ['admin', 'ceo', 'manager'].includes(normalize(p.role))),
+    [profiles]
+  );
 
-  const getDraft = (p) => drafts[p.id] || { role: p.role || 'sales', manager_id: p.manager_id || '', team_leader_id: p.team_leader_id || '', team_id: p.team_id || '', active: p.active !== false };
-  const updateDraft = (id, patch) => {
-    const profile = profiles.find((p) => p.id === id);
+  const leaders = useMemo(
+    () => profiles.filter((p) => normalize(p.role) === 'team_leader'),
+    [profiles]
+  );
+
+  const getDraft = (profile) => drafts[profile.id] || {
+    role: normalize(profile.role) || 'sales',
+    manager_id: profile.manager_id || '',
+    team_leader_id: profile.team_leader_id || '',
+    team_id: profile.team_id || '',
+    active: profile.active !== false
+  };
+
+  const changeDraft = (id, patch) => {
+    const profile = profiles.find((item) => item.id === id);
     if (!profile) return;
-    setDrafts((prev) => ({ ...prev, [id]: { ...getDraft(profile), ...patch } }));
+    setDrafts((prev) => ({
+      ...prev,
+      [id]: { ...getDraft(profile), ...patch }
+    }));
   };
 
   const saveEmployee = async (profile) => {
-    if (!canControl) return;
-    const d = getDraft(profile);
-    const roleUpdate = await supabase.from('user_roles').update({ role: d.role, active: d.active }).eq('id', profile.id);
-    if (roleUpdate.error) { alert('فشل تحديث الدور: ' + roleUpdate.error.message); return; }
-    const profileUpdate = await supabase.from('profiles').update({ role: d.role, manager_id: d.manager_id || null, team_leader_id: d.team_leader_id || null, team_id: d.team_id || null, active: d.active }).eq('id', profile.id);
-    if (profileUpdate.error) { alert('تم تحديث الدور لكن فشل الهيكل: ' + profileUpdate.error.message); return; }
-    alert('تم حفظ الدور والهيكل.');
+    if (!canControlRoles) {
+      setMessage('تعديل أدوار الموظفين متاح للـ Admin أو CEO فقط.');
+      return;
+    }
+
+    const draft = getDraft(profile);
+    const nextRole = normalize(draft.role);
+    setMessage('جاري حفظ التعديلات...');
+
+    const roleResult = await supabase
+      .from('user_roles')
+      .update({ role: nextRole, active: draft.active })
+      .eq('id', profile.id);
+
+    if (roleResult.error) {
+      setMessage('فشل تحديث الدور: ' + roleResult.error.message);
+      return;
+    }
+
+    const profileResult = await supabase
+      .from('profiles')
+      .update({
+        role: nextRole,
+        manager_id: draft.manager_id || null,
+        team_leader_id: draft.team_leader_id || null,
+        team_id: draft.team_id || null,
+        active: draft.active
+      })
+      .eq('id', profile.id);
+
+    if (profileResult.error) {
+      setMessage('تم تحديث الدور لكن فشل تحديث بيانات الهيكل: ' + profileResult.error.message);
+      return;
+    }
+
+    setMessage('تم حفظ صلاحيات الموظف بنجاح.');
     await load();
     onSaved?.();
   };
 
   const createTeam = async (event) => {
     event.preventDefault();
-    if (!canManageStructure || !newTeamName.trim()) return;
-    const result = await supabase.from('teams').insert([{ name: newTeamName.trim(), manager_id: newTeamManager || null, leader_id: newTeamLeader || null }]);
-    if (result.error) { alert('فشل إنشاء الفريق: ' + result.error.message); return; }
-    setNewTeamName(''); setNewTeamManager(''); setNewTeamLeader(''); await load();
+    if (!canManageStructure || !teamName.trim()) return;
+
+    const result = await supabase.from('teams').insert([{
+      name: teamName.trim(),
+      manager_id: teamManager || null,
+      leader_id: teamLeader || null
+    }]);
+
+    if (result.error) {
+      setMessage('فشل إنشاء الفريق: ' + result.error.message);
+      return;
+    }
+
+    setTeamName('');
+    setTeamManager('');
+    setTeamLeader('');
+    setMessage('تم إنشاء الفريق بنجاح.');
+    await load();
   };
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
-      <div style={{ background: '#131822', border: '1px solid #1f2937', borderRadius: '10px', padding: '1rem' }}>
-        <h3 style={{ color: '#d4af37', marginTop: 0 }}>هيكل الشركة والتحكم في الأدوار</h3>
-        <p style={{ color: '#9ca3af', fontSize: '0.78rem', marginTop: 0 }}>الأدوار والصلاحيات محفوظة في قاعدة البيانات، والتعيين يتم من المتحكم الإداري.</p>
+      <section style={cardStyle}>
+        <h3 style={titleStyle}>فريق العمل والصلاحيات</h3>
+        <p style={mutedStyle}>اختَر الموظف، غيّر الدور، ثم اضغط حفظ. التغيير يُسجل في قاعدة البيانات وليس في الواجهة فقط.</p>
+
+        {!canControlRoles && (
+          <div style={warningStyle}>
+            حسابك الحالي يمكنه مشاهدة الهيكل فقط. تعديل الأدوار متاح للـ Admin أو CEO.
+          </div>
+        )}
+
+        {message && <div style={{ ...mutedStyle, color: '#fbbf24', marginBottom: 12 }}>{message}</div>}
+
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '900px', borderCollapse: 'collapse', fontSize: '0.77rem' }}>
-            <thead><tr style={{ color: '#9ca3af', textAlign: 'right' }}><th style={{ padding: '0.6rem' }}>الموظف</th><th>الدور</th><th>المدير</th><th>قائد الفريق</th><th>الفريق</th><th>نشط</th><th></th></tr></thead>
+          <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ color: '#94a3b8', textAlign: 'right' }}>
+                <th style={cellStyle}>الموظف</th>
+                <th style={cellStyle}>الدور</th>
+                <th style={cellStyle}>المدير</th>
+                <th style={cellStyle}>قائد الفريق</th>
+                <th style={cellStyle}>الفريق</th>
+                <th style={cellStyle}>نشط</th>
+                <th style={cellStyle}>حفظ</th>
+              </tr>
+            </thead>
             <tbody>
-              {profiles.map((p) => {
-                const d = getDraft(p);
+              {profiles.map((profile) => {
+                const draft = getDraft(profile);
                 return (
-                  <tr key={p.id} style={{ borderTop: '1px solid #1f2937' }}>
-                    <td style={{ padding: '0.6rem' }}>{p.full_name || p.email}</td>
-                    <td><select disabled={!canControl} value={d.role} onChange={(e) => updateDraft(p.id, { role: e.target.value })} style={{ padding: '0.35rem', background: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }}>{(roles.length ? roles : fallbackRoles).map((r) => <option key={r.key} value={r.key}>{r.name_ar || r.key}</option>)}</select></td>
-                    <td><select disabled={!canControl} value={d.manager_id} onChange={(e) => updateDraft(p.id, { manager_id: e.target.value })} style={{ padding: '0.35rem', background: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }}><option value=''>بدون مدير</option>{managers.filter((m) => m.id !== p.id).map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}</select></td>
-                    <td><select disabled={!canControl} value={d.team_leader_id} onChange={(e) => updateDraft(p.id, { team_leader_id: e.target.value })} style={{ padding: '0.35rem', background: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }}><option value=''>بدون قائد</option>{leaders.filter((m) => m.id !== p.id).map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}</select></td>
-                    <td><select disabled={!canControl} value={d.team_id} onChange={(e) => updateDraft(p.id, { team_id: e.target.value })} style={{ padding: '0.35rem', background: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px' }}><option value=''>بدون فريق</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></td>
-                    <td><input disabled={!canControl} type='checkbox' checked={d.active} onChange={(e) => updateDraft(p.id, { active: e.target.checked })} /></td>
-                    <td><button type='button' disabled={!canControl} onClick={() => saveEmployee(p)} style={{ padding: '0.35rem 0.6rem', background: canControl ? '#d4af37' : '#374151', border: 0, borderRadius: '4px', color: '#0c0f17', fontWeight: 700 }}>حفظ</button></td>
+                  <tr key={profile.id} style={{ borderTop: '1px solid #273244' }}>
+                    <td style={cellStyle}>
+                      <div style={{ color: '#fff', fontWeight: 700 }}>{profile.full_name || 'بدون اسم'}</div>
+                      <div style={{ color: '#94a3b8', fontSize: 11 }}>{profile.email}</div>
+                    </td>
+                    <td style={cellStyle}>
+                      <select
+                        disabled={!canControlRoles}
+                        value={draft.role}
+                        onChange={(e) => changeDraft(profile.id, { role: e.target.value })}
+                        style={selectStyle}
+                      >
+                        {ROLE_OPTIONS.map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={cellStyle}>
+                      <select
+                        disabled={!canControlRoles}
+                        value={draft.manager_id}
+                        onChange={(e) => changeDraft(profile.id, { manager_id: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="">بدون مدير</option>
+                        {managers.filter((m) => m.id !== profile.id).map((m) => (
+                          <option key={m.id} value={m.id}>{m.full_name || m.email}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={cellStyle}>
+                      <select
+                        disabled={!canControlRoles}
+                        value={draft.team_leader_id}
+                        onChange={(e) => changeDraft(profile.id, { team_leader_id: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="">بدون قائد</option>
+                        {leaders.filter((m) => m.id !== profile.id).map((m) => (
+                          <option key={m.id} value={m.id}>{m.full_name || m.email}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={cellStyle}>
+                      <select
+                        disabled={!canControlRoles}
+                        value={draft.team_id}
+                        onChange={(e) => changeDraft(profile.id, { team_id: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="">بدون فريق</option>
+                        {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                      </select>
+                    </td>
+                    <td style={cellStyle}>
+                      <input
+                        disabled={!canControlRoles}
+                        type="checkbox"
+                        checked={draft.active}
+                        onChange={(e) => changeDraft(profile.id, { active: e.target.checked })}
+                      />
+                    </td>
+                    <td style={cellStyle}>
+                      <button
+                        type="button"
+                        disabled={!canControlRoles}
+                        onClick={() => saveEmployee(profile)}
+                        style={{
+                          background: canControlRoles ? '#fbbf24' : '#374151',
+                          color: '#0c0f17',
+                          border: 0,
+                          borderRadius: 10,
+                          padding: '9px 14px',
+                          fontWeight: 800,
+                          cursor: canControlRoles ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        حفظ
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-      </div>
-      {canManageStructure && <form onSubmit={createTeam} style={{ background: '#131822', border: '1px solid #1f2937', borderRadius: '10px', padding: '1rem' }}>
-        <h3 style={{ color: '#d4af37', marginTop: 0 }}>إنشاء فريق جديد</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '0.6rem' }}>
-          <input required value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder='اسم الفريق' style={{ padding: '0.5rem', background: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '5px' }} />
-          <select value={newTeamManager} onChange={(e) => setNewTeamManager(e.target.value)} style={{ padding: '0.5rem', background: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '5px' }}><option value=''>المدير</option>{managers.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}</select>
-          <select value={newTeamLeader} onChange={(e) => setNewTeamLeader(e.target.value)} style={{ padding: '0.5rem', background: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '5px' }}><option value=''>قائد الفريق</option>{leaders.map((l) => <option key={l.id} value={l.id}>{l.full_name || l.email}</option>)}</select>
-          <button type='submit' style={{ padding: '0.55rem', background: '#d4af37', border: 0, borderRadius: '5px', fontWeight: 700 }}>إضافة الفريق</button>
-        </div>
-      </form>}
-      {loading && <div style={{ color: '#9ca3af', fontSize: '0.78rem' }}>جاري تحميل الهيكل...</div>}
+
+        {loading && <div style={mutedStyle}>جاري تحميل بيانات الفريق...</div>}
+      </section>
+
+      {canManageStructure && (
+        <form onSubmit={createTeam} style={cardStyle}>
+          <h3 style={titleStyle}>إنشاء فريق جديد</h3>
+          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+            <input required value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="اسم الفريق" style={inputStyle} />
+            <select value={teamManager} onChange={(e) => setTeamManager(e.target.value)} style={selectStyle}>
+              <option value="">المدير</option>
+              {managers.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
+            </select>
+            <select value={teamLeader} onChange={(e) => setTeamLeader(e.target.value)} style={selectStyle}>
+              <option value="">قائد الفريق</option>
+              {leaders.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
+            </select>
+            <button type="submit" style={{ background: '#fbbf24', color: '#0c0f17', border: 0, borderRadius: 10, fontWeight: 800 }}>
+              إضافة الفريق
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }
+
+const cardStyle = { background: '#131822', border: '1px solid #273244', borderRadius: 14, padding: 16 };
+const titleStyle = { color: '#fbbf24', marginTop: 0 };
+const mutedStyle = { color: '#94a3b8', fontSize: 13, margin: '8px 0' };
+const warningStyle = { color: '#fbbf24', background: '#211b0a', border: '1px solid #7c5b13', borderRadius: 10, padding: 10, marginBottom: 12 };
+const cellStyle = { padding: '10px 8px', verticalAlign: 'middle' };
+const selectStyle = { padding: '8px 9px', background: '#0c0f17', color: '#fff', border: '1px solid #475569', borderRadius: 9, minWidth: 130 };
+const inputStyle = { padding: 10, background: '#0c0f17', color: '#fff', border: '1px solid #475569', borderRadius: 9 };
