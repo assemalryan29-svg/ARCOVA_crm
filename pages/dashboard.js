@@ -764,12 +764,15 @@ export default function Dashboard() {
                 </select>
 
                 {/* زر إنشاء مجلد جديد */}
-                <button 
-                  onClick={() => setShowCreateFolderModal(true)} 
-                  style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
-                >
-                  + مجلد جديد
-                </button>
+                {can(userRole, PERMISSIONS.LEADS_CREATE) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateFolderModal(true)}
+                    style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                  >
+                    + مجلد جديد
+                  </button>
+                )}
 
                 {/* فلتر حملة الماركتنج والمشروع */}
                 <select 
@@ -801,11 +804,11 @@ export default function Dashboard() {
                   + تسجيل عميل
                 </button>
 
-                {userRole === 'admin' && (
-                  <>
-                    <button onClick={() => setShowImportModal(true)} style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#34d399', border: '1px solid #34d399', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>📥 استيراد</button>
-                    <button onClick={handleExportToExcel} style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>📤 تصدير</button>
-                  </>
+                {can(userRole, PERMISSIONS.LEADS_IMPORT) && (
+                  <button onClick={() => setShowImportModal(true)} style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#34d399', border: '1px solid #34d399', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>📥 استيراد</button>
+                )}
+                {can(userRole, PERMISSIONS.LEADS_EXPORT) && (
+                  <button onClick={handleExportToExcel} style={{ padding: '0.5rem 0.8rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>📤 تصدير</button>
                 )}
               </div>
             </div>
@@ -847,7 +850,7 @@ export default function Dashboard() {
                       </td>
                       <td style={{ padding: '0.8rem' }}>
                         {/* الماركتنج ممنوع من تغيير حالة العميل */}
-                        <select disabled={!canManageInventory(userRole)} value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
+                        <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
                           {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                       </td>
@@ -897,37 +900,6 @@ export default function Dashboard() {
 
         {activeTab === 'reminders' && can(userRole, PERMISSIONS.FOLLOWUPS_VIEW) && (
           <FollowupsPanel currentUser={currentUser} userRole={userRole} leads={leads} />
-        )}
-
-        {activeTab === 'reminders' && (
-          <div style={{ backgroundColor: '#131822', padding: '1.2rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
-            <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem' }}>المتابعات المستحقة ({dueFollowUps.length})</h3>
-            {dueFollowUps.length === 0 ? (
-              <p style={{ color: '#34d399', marginTop: '0.8rem', fontSize: '0.85rem' }}>لا توجد مهام متابعة مستحقة.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
-                {dueFollowUps.map(lead => (
-                  <div key={lead.id} style={{ backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', borderRight: '3px solid #d4af37', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>
-                        {lead.name} - {userRole === 'admin' ? lead.phone : `******${(lead.phone || '').slice(-4)}`}
-                      </div>
-                      <div style={{ color: '#f87171', fontSize: '0.75rem' }}>الموعد: {new Date(lead.next_follow_up).toLocaleString('ar-EG')}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                      <button onClick={() => handleOpenLeadDetails(lead)} style={{ padding: '0.3rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>فتح</button>
-                      {userRole !== 'marketing' && (
-                        <>
-                          <a href={`tel:${lead.phone}`} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>📞</a>
-                          <a href={`https://wa.me/${(lead.phone || '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.8rem' }}>🟢</a>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         )}
 
         {activeTab === 'tasks' && (
