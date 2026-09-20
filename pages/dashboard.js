@@ -55,6 +55,8 @@ export default function Dashboard() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [importPreview, setImportPreview] = useState([]);
+  const [importSkippedPreview, setImportSkippedPreview] = useState(0);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -355,25 +357,65 @@ export default function Dashboard() {
     if (!error) fetchData();
   };
 
+  const parseCsv = (text) => {
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let quoted = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const next = text[i + 1];
+
+      if (ch === '"') {
+        if (quoted && next === '"') {
+          cell += '"';
+          i++;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (ch === ',' && !quoted) {
+        row.push(cell.trim());
+        cell = '';
+      } else if ((ch === '\n' || ch === '\r') && !quoted) {
+        if (ch === '\r' && next === '\n') i++;
+        row.push(cell.trim());
+        if (row.some((value) => value !== '')) rows.push(row);
+        row = [];
+        cell = '';
+      } else {
+        cell += ch;
+      }
+    }
+
+    if (cell !== '' || row.length) {
+      row.push(cell.trim());
+      if (row.some((value) => value !== '')) rows.push(row);
+    }
+    return rows;
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const text = event.target.result;
-        const lines = text.split('\n');
-        let importedCount = 0;
-        let skippedCount = 0;
-        const pending = [];
 
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-          const cols = line.split(',').map((value) => value.replace(/^[\"']|[\"']$/g, '').trim());
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const rows = parseCsv(String(event.target.result || ''));
+        if (rows.length < 2) {
+          alert('الملف لا يحتوي على سجلات قابلة للاستيراد.');
+          return;
+        }
+
+        const pending = [];
+        let skipped = 0;
+
+        for (let i = 1; i < rows.length; i++) {
+          const cols = rows[i];
           const lead = {
-            name: cols[0],
-            phone: cols[1],
+            name: cols[0] || '',
+            phone: cols[1] || '',
             email: cols[2] || '',
             lead_source: cols[3] || 'Imported',
             status: 'New Lead',
@@ -381,35 +423,47 @@ export default function Dashboard() {
           };
 
           const validation = validateLeadInput(lead);
-          const duplicate = leads.some((existing) => isDuplicateLead(existing, lead))
-            || pending.some((existing) => isDuplicateLead(existing, lead));
+          const duplicate =
+            leads.some((existing) => isDuplicateLead(existing, lead)) ||
+            pending.some((existing) => isDuplicateLead(existing, lead));
 
           if (!validation.valid || duplicate) {
-            skippedCount++;
+            skipped++;
             continue;
           }
 
           pending.push(lead);
         }
 
-        for (let i = 0; i < pending.length; i += 100) {
-          const batch = pending.slice(i, i + 100);
-          const { error } = await supabase.from('leads').insert(batch);
-          if (error) {
-            skippedCount += batch.length;
-            continue;
-          }
-          importedCount += batch.length;
-        }
-
-        alert(`تم استيراد ${importedCount} عميل بنجاح! وتم تخطي ${skippedCount} سجل غير صالح أو مكرر.`);
-        setShowImportModal(false);
-        fetchData();
+        setImportPreview(pending);
+        setImportSkippedPreview(skipped);
       } catch (err) {
-        alert('حدث خطأ أثناء قراءة الملف.');
+        alert('حدث خطأ أثناء قراءة ملف CSV.');
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview.length) return;
+    let importedCount = 0;
+    let skippedCount = importSkippedPreview;
+
+    for (let i = 0; i < importPreview.length; i += 100) {
+      const batch = importPreview.slice(i, i + 100);
+      const { error } = await supabase.from('leads').insert(batch);
+      if (error) {
+        skippedCount += batch.length;
+        continue;
+      }
+      importedCount += batch.length;
+    }
+
+    alert(`تم استيراد ${importedCount} عميل بنجاح! وتم تخطي ${skippedCount} سجل غير صالح أو مكرر.`);
+    setImportPreview([]);
+    setImportSkippedPreview(0);
+    setShowImportModal(false);
+    fetchData();
   };
 
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
@@ -1241,8 +1295,32 @@ export default function Dashboard() {
             <h3 style={{ color: '#34d399', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>📥 استيراد من Excel / CSV</h3>
             <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>الرجاء رفع ملف CSV يحتوي على الأعمدة: Name, Phone, Email, Source</p>
             <input type="file" accept=".csv" onChange={handleFileUpload} style={{ marginTop: '1rem', color: '#fff', fontSize: '0.8rem' }} />
-            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowImportModal(false)} style={{ padding: '0.4rem 1rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}>إغلاق</button>
+
+            {importPreview.length > 0 && (
+              <div style={{ marginTop: '1rem', backgroundColor: '#0c0f17', border: '1px solid #1f2937', borderRadius: '6px', padding: '0.8rem', maxHeight: '240px', overflow: 'auto' }}>
+                <div style={{ color: '#34d399', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                  معاينة: {importPreview.length} سجل جاهز للاستيراد
+                </div>
+                <div style={{ color: '#f59e0b', fontSize: '0.72rem', marginTop: '0.25rem' }}>
+                  تم تخطي {importSkippedPreview} سجل غير صالح أو مكرر
+                </div>
+                {importPreview.slice(0, 10).map((lead, index) => (
+                  <div key={index} style={{ marginTop: '0.35rem', color: '#cbd5e1', fontSize: '0.7rem' }}>
+                    {lead.name} · {lead.phone} · {lead.email || 'بدون بريد'}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              {importPreview.length > 0 && (
+                <button type="button" onClick={handleConfirmImport} style={{ padding: '0.4rem 1rem', backgroundColor: '#34d399', color: '#0c0f17', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                  تأكيد الاستيراد
+                </button>
+              )}
+              <button type="button" onClick={() => { setShowImportModal(false); setImportPreview([]); setImportSkippedPreview(0); }} style={{ padding: '0.4rem 1rem', backgroundColor: '#374151', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                إغلاق
+              </button>
             </div>
           </div>
         </div>
