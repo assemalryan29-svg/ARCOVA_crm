@@ -474,14 +474,14 @@ export default function Dashboard() {
   if (loading) return <div style={{ color: '#d4af37', textAlign: 'center', padding: '5rem', backgroundColor: '#0c0f17', minHeight: '100vh' }}>جاري التحميل...</div>;
 
   return (
-    <div className="arcova-dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl', display: 'flex' }}>
+    <div className="arcova-dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl' }}>
       <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} />
       <div className="arcova-dashboard-content" style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
         <style jsx>{`
-          .arcova-dashboard-shell { flex-direction: row; width: 100%; }
+          .arcova-dashboard-shell { display: flex; flex-direction: row; width: 100%; }
           .arcova-dashboard-content { width: 100%; }
           @media (max-width: 768px) {
-            .arcova-dashboard-shell { display: block; width: 100%; }
+            .arcova-dashboard-shell { display: block !important; width: 100%; overflow-x: hidden; }
             .arcova-dashboard-content { display: block; width: 100%; min-width: 0; }
           }
         `}</style>
