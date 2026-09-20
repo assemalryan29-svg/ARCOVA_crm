@@ -80,9 +80,9 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  // مزامنة صفحة الـDashboard مع الـview الموجود في عنوان الصفحة.
+  // التنقل يتم بدون reload حتى لا ترجع الصفحة تلقائياً إلى قائمة العملاء.
   useEffect(() => {
-    if (!router.isReady) return;
-    const view = typeof router.query.view === 'string' ? router.query.view : 'overview';
     const viewToTab = {
       overview: 'list',
       leads: 'list',
@@ -94,9 +94,22 @@ export default function Dashboard() {
       audit: 'audit',
       team: 'team'
     };
-    const nextTab = viewToTab[view];
-    if (nextTab) setActiveTab(nextTab);
-  }, [router.isReady, router.query.view]);
+
+    const syncView = () => {
+      if (typeof window === 'undefined') return;
+      const view = new URLSearchParams(window.location.search).get('view') || 'overview';
+      setActiveTab(viewToTab[view] || 'list');
+    };
+
+    syncView();
+    window.addEventListener('popstate', syncView);
+    window.addEventListener('arcova:navigate', syncView);
+
+    return () => {
+      window.removeEventListener('popstate', syncView);
+      window.removeEventListener('arcova:navigate', syncView);
+    };
+  }, []);
 
   useEffect(() => {
     if (!audioEnabled) return;
