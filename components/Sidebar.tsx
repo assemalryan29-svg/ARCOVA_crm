@@ -42,25 +42,22 @@ export default function Sidebar({ activeView = 'overview', onNavigate }) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.view;
-            const handleItemActivate = (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onNavigate?.(item.view);
-            };
-            return (
-              <button
+                        return (
+              <a
                 key={item.view}
-                type="button"
+                href={`#${item.view}`}
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
                 aria-current={isActive ? 'page' : undefined}
-                onClick={handleItemActivate}
-                onPointerUp={handleItemActivate}
-                onTouchEnd={handleItemActivate}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onNavigate?.(item.view);
+                  window.location.hash = item.view;
+                }}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
                 <ChevronLeft size={16} className="arcova-nav-arrow" />
-              </button>
+              </a>
             );
           })}
         </nav>
