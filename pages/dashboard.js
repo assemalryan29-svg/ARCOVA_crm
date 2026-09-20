@@ -80,35 +80,41 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // مزامنة صفحة الـDashboard مع الـview الموجود في عنوان الصفحة.
-  // التنقل يتم بدون reload حتى لا ترجع الصفحة تلقائياً إلى قائمة العملاء.
-  useEffect(() => {
-    const viewToTab = {
-      overview: 'list',
-      leads: 'list',
-      reminders: 'reminders',
-      projects: 'projects',
-      tasks: 'tasks',
-      campaigns: 'campaigns',
-      leaderboard: 'leaderboard',
-      audit: 'audit',
-      team: 'team'
-    };
+  // الـDashboard هو مصدر التحكم الوحيد في التنقل بين الأقسام.
+  const viewToTab = {
+    overview: 'list',
+    leads: 'list',
+    reminders: 'reminders',
+    projects: 'projects',
+    tasks: 'tasks',
+    campaigns: 'campaigns',
+    leaderboard: 'leaderboard',
+    audit: 'audit',
+    team: 'team'
+  };
 
-    const syncView = () => {
-      if (typeof window === 'undefined') return;
+  const handleSidebarNavigation = (view) => {
+    const nextTab = viewToTab[view] || 'list';
+    setActiveTab(nextTab);
+
+    // حفظ القسم في الـURL بدون إعادة تحميل الصفحة.
+    if (typeof window !== 'undefined') {
+      const target = `/dashboard?view=${encodeURIComponent(view)}`;
+      window.history.pushState({ view }, '', target);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncViewFromUrl = () => {
       const view = new URLSearchParams(window.location.search).get('view') || 'overview';
       setActiveTab(viewToTab[view] || 'list');
     };
 
-    syncView();
-    window.addEventListener('popstate', syncView);
-    window.addEventListener('arcova:navigate', syncView);
-
-    return () => {
-      window.removeEventListener('popstate', syncView);
-      window.removeEventListener('arcova:navigate', syncView);
-    };
+    syncViewFromUrl();
+    window.addEventListener('popstate', syncViewFromUrl);
+    return () => window.removeEventListener('popstate', syncViewFromUrl);
   }, []);
 
   useEffect(() => {
@@ -475,7 +481,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl', display: 'flex' }}>
-      <Sidebar />
+      <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} />
       <div style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
 
       {/* --- شريط الهيدر المودرن (Modern Navbar) --- */}
