@@ -1,0 +1,18 @@
+{
+  "name": "ARCOVA Real Estate CRM",
+  "short_name": "ARCOVA CRM",
+  "description": "ARCOVA Enterprise Real Estate CRM",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0c0f17",
+  "theme_color": "#0c0f17",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
