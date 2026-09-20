@@ -6,7 +6,7 @@ import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
-import { validateLeadInput, getLeadDuplicateKey } from '../lib/leadValidation';
+import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -247,8 +247,7 @@ export default function Dashboard() {
 
     try {
       const assignedTarget = can(userRole, PERMISSIONS.PROJECTS_MANAGE) ? (newLeadData.assigned_to || null) : currentUser.id;
-      const duplicateKey = getLeadDuplicateKey(newLeadData);
-      const existingDuplicate = leads.find(l => getLeadDuplicateKey(l) === duplicateKey);
+      const existingDuplicate = leads.find((l) => isDuplicateLead(l, newLeadData));
       if (existingDuplicate) {
         alert('العميل موجود بالفعل بنفس رقم الهاتف أو البريد الإلكتروني.');
         return;
@@ -342,38 +341,49 @@ export default function Dashboard() {
         const lines = text.split('\n');
         let importedCount = 0;
         let skippedCount = 0;
-        const seenKeys = new Set(leads.map(l => getLeadDuplicateKey(l)));
+        const pending = [];
+
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
-          const cols = line.split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
-          const name = cols[0], phone = cols[1], email = cols[2] || '', lead_source = cols[3] || 'Imported';
-          const validation = validateLeadInput({ name, phone, email });
-          if (!validation.valid) {
+          const cols = line.split(',').map((value) => value.replace(/^[\"']|[\"']$/g, '').trim());
+          const lead = {
+            name: cols[0],
+            phone: cols[1],
+            email: cols[2] || '',
+            lead_source: cols[3] || 'Imported',
+            status: 'New Lead',
+            assigned_to: currentUser.id
+          };
+
+          const validation = validateLeadInput(lead);
+          const duplicate = leads.some((existing) => isDuplicateLead(existing, lead))
+            || pending.some((existing) => isDuplicateLead(existing, lead));
+
+          if (!validation.valid || duplicate) {
             skippedCount++;
             continue;
           }
 
-          const lead = { name, phone, email, lead_source, status: 'New Lead', assigned_to: null };
-          const duplicateKey = getLeadDuplicateKey(lead);
-          if (seenKeys.has(duplicateKey)) {
-            skippedCount++;
-            continue;
-          }
-
-          const { error } = await supabase.from('leads').insert([lead]);
-          if (error) {
-            skippedCount++;
-            continue;
-          }
-
-          seenKeys.add(duplicateKey);
-          importedCount++;
+          pending.push(lead);
         }
+
+        for (let i = 0; i < pending.length; i += 100) {
+          const batch = pending.slice(i, i + 100);
+          const { error } = await supabase.from('leads').insert(batch);
+          if (error) {
+            skippedCount += batch.length;
+            continue;
+          }
+          importedCount += batch.length;
+        }
+
         alert(`تم استيراد ${importedCount} عميل بنجاح! وتم تخطي ${skippedCount} سجل غير صالح أو مكرر.`);
         setShowImportModal(false);
         fetchData();
-      } catch (err) { alert('حدث خطأ أثناء قراءة الملف.'); }
+      } catch (err) {
+        alert('حدث خطأ أثناء قراءة الملف.');
+      }
     };
     reader.readAsText(file);
   };
@@ -430,13 +440,38 @@ export default function Dashboard() {
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
-      const { data, error } = await supabase.auth.signUp({ email: newUser.email, password: newUser.password });
-      if (error) { alert('ملاحظة: ' + error.message); return; }
-      if (data?.user) {
-        await supabase.from('user_roles').insert([{ id: data.user.id, email: newUser.email, role: newUser.role }]);
-        alert('تم إضافة الموظف بنجاح!'); setShowUserModal(false); setNewUser({ email: '', password: '', role: 'sales' }); fetchData();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
+        return;
       }
-    } catch (err) { alert('خطأ اتصال'); }
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({
+          email: newUser.email.trim(),
+          password: newUser.password,
+          role: newUser.role
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        alert('فشل إنشاء المستخدم: ' + (result.error || 'خطأ غير معروف'));
+        return;
+      }
+
+      alert('تم إضافة الموظف بنجاح.');
+      setShowUserModal(false);
+      setNewUser({ email: '', password: '', role: 'sales' });
+      fetchData();
+    } catch (err) {
+      alert('خطأ اتصال: ' + err.message);
+    }
   };
 
   const handleExportToExcel = () => {
