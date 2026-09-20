@@ -43,19 +43,16 @@ export default function Sidebar({ activeView = 'overview', onNavigate }) {
             const Icon = item.icon;
             const isActive = activeView === item.view;
             return (
-              <a
+              <button
                 key={item.view}
-                href={`/dashboard?view=${encodeURIComponent(item.view)}`}
+                type="button"
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
                 aria-current={isActive ? 'page' : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  if (typeof onNavigate === 'function') onNavigate(item.view);
-                }}
+                onClick={() => onNavigate?.(item.view)}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
                 <ChevronLeft size={16} className="arcova-nav-arrow" />
-              </a>
+              </button>
             );
           })}
         </nav>
@@ -75,7 +72,7 @@ export default function Sidebar({ activeView = 'overview', onNavigate }) {
         .arcova-brand-subtitle { margin-top: 2px; font-size: .6rem; font-weight: 600; letter-spacing: .16em; color: #94a3b8; }
         .arcova-menu-title { margin-bottom: 12px; padding: 0 12px; font-size: .65rem; font-weight: 700; letter-spacing: .12em; color: #64748b; }
         .arcova-nav { display: flex; flex-direction: column; gap: 8px; }
-        .arcova-nav-link { appearance: none; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px; border: 0; border-radius: 12px; box-sizing: border-box; color: #cbd5e1; background: transparent; transition: background .2s ease, color .2s ease, transform .2s ease; cursor: pointer; touch-action: manipulation; text-decoration: none; -webkit-tap-highlight-color: transparent; font: inherit; text-align: right; position: relative; z-index: 30; pointer-events: auto; }
+        .arcova-nav-link { appearance: none; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px; border: 0; border-radius: 12px; box-sizing: border-box; color: #cbd5e1; background: transparent; transition: background .2s ease, color .2s ease, transform .2s ease; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; font: inherit; text-align: right; position: relative; z-index: 30; pointer-events: auto; }
         .arcova-nav-link:hover { background: #0f172a; color: #fff; transform: translateX(-2px); }
         .arcova-nav-link.active { background: #fbbf24; color: #020617; box-shadow: 0 10px 25px rgba(245,158,11,.12); }
         .arcova-nav-label { display: flex; align-items: center; gap: 12px; min-width: 0; pointer-events: none; }
