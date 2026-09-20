@@ -946,7 +946,7 @@ export default function Dashboard() {
                         </select>
 
                         {/* الاتصال المباشر والواتساب للمبيعات والأدمن */}
-                        {userRole !== 'marketing' && (
+                        {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
                           <>
                             <a href={`tel:${lead.phone}`} title="اتصال" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#065f46', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>📞</a>
                             <a href={`https://wa.me/${(lead.phone || '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" title="واتساب" style={{ padding: '0.3rem 0.5rem', backgroundColor: '#166534', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '0.75rem' }}>🟢</a>
@@ -1167,16 +1167,16 @@ export default function Dashboard() {
             <form onSubmit={handleSaveLeadExtendedDetails} style={{ backgroundColor: '#0c0f17', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #1f2937', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ fontSize: '0.8rem', color: '#d4af37', fontWeight: 'bold' }}>بيانات الاهتمام العقاري:</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <input type="number" disabled={!canManageInventory(userRole)} placeholder="الميزانية" value={selectedLead.budget || ''} onChange={(e) => setSelectedLead({...selectedLead, budget: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
-                <input type="text" disabled={!canManageInventory(userRole)} placeholder="المنطقة المفضلة" value={selectedLead.preferred_area || ''} onChange={(e) => setSelectedLead({...selectedLead, preferred_area: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
+                <input type="number" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="الميزانية" value={selectedLead.budget || ''} onChange={(e) => setSelectedLead({...selectedLead, budget: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
+                <input type="text" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="المنطقة المفضلة" value={selectedLead.preferred_area || ''} onChange={(e) => setSelectedLead({...selectedLead, preferred_area: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
               </div>
-              <select disabled={!canManageInventory(userRole)} value={selectedLead.desired_unit_type || 'شقة'} onChange={(e) => setSelectedLead({...selectedLead, desired_unit_type: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
+              <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.desired_unit_type || 'شقة'} onChange={(e) => setSelectedLead({...selectedLead, desired_unit_type: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }}>
                 <option value="شقة">شقة</option>
                 <option value="فيلا">فيلا</option>
                 <option value="تاون هاوس">تاون هاوس</option>
                 <option value="تجاري / إداري">تجاري / إداري</option>
               </select>
-              {userRole !== 'marketing' && (
+              {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
                 <button type="submit" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#34d399', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem', alignSelf: 'flex-start' }}>حفظ التعديلات</button>
               )}
             </form>
@@ -1185,7 +1185,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: '#d4af37' }}>الحالة:</span>
                 {/* الماركتنج ممنوع من تغيير حالة العميل */}
-                <select disabled={!canManageInventory(userRole)} value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
+                <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#131822', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
                   {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
@@ -1194,7 +1194,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <span style={{ color: '#d4af37', fontSize: '0.8rem' }}>موعد المتابعة:</span>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
-                  <input type="datetime-local" disabled={!canManageInventory(userRole)} value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ flex: 1, padding: '0.3rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
+                  <input type="datetime-local" disabled={!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)} value={followUpInput} onChange={(e) => setFollowUpInput(e.target.value)} style={{ flex: 1, padding: '0.3rem', backgroundColor: '#131822', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.8rem' }} />
                   {userRole !== 'marketing' && (
                     <button onClick={() => handleSaveFollowUp(selectedLead.id, followUpInput)} style={{ padding: '0.3rem 0.6rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>حفظ</button>
                   )}
