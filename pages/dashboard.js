@@ -446,17 +446,26 @@ export default function Dashboard() {
 
   const handleConfirmImport = async () => {
     if (!importPreview.length) return;
+
     let importedCount = 0;
     let skippedCount = importSkippedPreview;
 
     for (let i = 0; i < importPreview.length; i += 100) {
       const batch = importPreview.slice(i, i + 100);
       const { error } = await supabase.from('leads').insert(batch);
-      if (error) {
-        skippedCount += batch.length;
+
+      if (!error) {
+        importedCount += batch.length;
         continue;
       }
-      importedCount += batch.length;
+
+      // لو Batch فشل، جرّب السجلات واحدة واحدة حتى لا تضيع السجلات الصحيحة
+      // بسبب سجل واحد مكرر أو غير صالح على مستوى قاعدة البيانات.
+      for (const lead of batch) {
+        const single = await supabase.from('leads').insert([lead]);
+        if (single.error) skippedCount++;
+        else importedCount++;
+      }
     }
 
     alert(`تم استيراد ${importedCount} عميل بنجاح! وتم تخطي ${skippedCount} سجل غير صالح أو مكرر.`);
