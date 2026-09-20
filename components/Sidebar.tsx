@@ -9,22 +9,28 @@ import {
   Trophy,
   ShieldCheck,
   UserCog,
+  GitBranch,
+  Briefcase,
+  BarChart3,
   ChevronLeft,
 } from 'lucide-react';
 
 const navItems = [
   { name: 'الرئيسية', view: 'overview', icon: LayoutDashboard },
-  { name: 'العملاء', view: 'leads', icon: Users },
+  { name: 'العملاء / Customer 360', view: 'leads', icon: Users },
+  { name: 'Pipeline', view: 'pipeline', icon: GitBranch },
   { name: 'المتابعات', view: 'reminders', icon: CalendarClock },
   { name: 'المشاريع والوحدات', view: 'projects', icon: Building2 },
   { name: 'المهام', view: 'tasks', icon: ListTodo },
   { name: 'الحملات', view: 'campaigns', icon: Megaphone },
+  { name: 'الصفقات والحجوزات', view: 'operations', icon: Briefcase },
+  { name: 'التقارير', view: 'reports', icon: BarChart3 },
   { name: 'أداء المبيعات', view: 'leaderboard', icon: Trophy },
   { name: 'سجل التدقيق', view: 'audit', icon: ShieldCheck },
   { name: 'فريق العمل', view: 'team', icon: UserCog },
 ];
 
-export default function Sidebar({ activeView = 'overview', onNavigate }) {
+export default function Sidebar({ activeView = 'overview', onNavigate, visibleViews = navItems.map((item) => item.view) }) {
 
   return (
     <aside className="arcova-sidebar" dir="rtl">
@@ -39,7 +45,7 @@ export default function Sidebar({ activeView = 'overview', onNavigate }) {
 
         <div className="arcova-menu-title">القائمة الرئيسية</div>
         <nav className="arcova-nav" aria-label="القائمة الرئيسية">
-          {navItems.map((item) => {
+          {navItems.filter((item) => visibleViews.includes(item.view)).map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.view;
                         return (
