@@ -45,9 +45,13 @@ export default function Sidebar({ activeView = 'overview', onNavigate }) {
             return (
               <a
                 key={item.view}
-                href={`/dashboard?view=${encodeURIComponent(item.view)}&nav=1`}
+                href={`/dashboard?view=${encodeURIComponent(item.view)}`}
                 className={`arcova-nav-link ${isActive ? 'active' : ''}`}
                 aria-current={isActive ? 'page' : undefined}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (typeof onNavigate === 'function') onNavigate(item.view);
+                }}
               >
                 <span className="arcova-nav-label"><Icon size={18} /><span>{item.name}</span></span>
                 <ChevronLeft size={16} className="arcova-nav-arrow" />
