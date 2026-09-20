@@ -300,7 +300,7 @@ export default function Dashboard() {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskData.title) return;
-    const { error } = await supabase.from('tasks').insert([{ ...newTaskData, status: 'Pending', created_by: currentUser.id }]);
+    const { error } = await supabase.from('tasks').insert([{ ...newTaskData, status: 'Pending', user_id: currentUser.id, created_by: currentUser.id }]);
     if (!error) { setShowTaskModal(false); setNewTaskData({ title: '', lead_id: '', due_date: '', description: '' }); fetchData(); }
   };
 
