@@ -65,7 +65,7 @@ export default function Dashboard() {
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [newNote, setNewNote] = useState('');
-  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'sales' });
+  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'sales' });
   
   const [newLeadData, setNewLeadData] = useState({ 
     name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '',
@@ -568,6 +568,7 @@ export default function Dashboard() {
           Authorization: 'Bearer ' + session.access_token
         },
         body: JSON.stringify({
+          full_name: newUser.full_name.trim(),
           email: newUser.email.trim(),
           password: newUser.password,
           role: newUser.role
@@ -582,7 +583,7 @@ export default function Dashboard() {
 
       alert('تم إضافة الموظف بنجاح.');
       setShowUserModal(false);
-      setNewUser({ email: '', password: '', role: 'sales' });
+      setNewUser({ full_name: '', email: '', password: '', role: 'sales' });
       fetchData();
     } catch (err) {
       alert('خطأ اتصال: ' + err.message);
@@ -1117,6 +1118,7 @@ export default function Dashboard() {
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #d4af37' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة موظف</h3>
             <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
+              <input type="text" placeholder="اسم الموظف" required value={newUser.full_name} onChange={(e) => setNewUser({...newUser, full_name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '8px', fontSize: '0.85rem' }} />
               <input type="email" placeholder="البريد الإلكتروني" required value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="password" placeholder="كلمة المرور" required value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#fff', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }} />
               <select value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#0c0f17', color: '#d4af37', border: '1px solid #374151', borderRadius: '4px', fontSize: '0.85rem' }}>
