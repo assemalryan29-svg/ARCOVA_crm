@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -24,33 +24,11 @@ const navItems = [
   { name: 'فريق العمل', view: 'team', icon: UserCog },
 ];
 
-export default function Sidebar() {
-  const [activeView, setActiveView] = useState('overview');
-
-  useEffect(() => {
-    const syncView = () => {
-      if (typeof window === 'undefined') return;
-      const view = new URLSearchParams(window.location.search).get('view') || 'overview';
-      setActiveView(view);
-    };
-
-    syncView();
-    window.addEventListener('popstate', syncView);
-    window.addEventListener('arcova:navigate', syncView);
-
-    return () => {
-      window.removeEventListener('popstate', syncView);
-      window.removeEventListener('arcova:navigate', syncView);
-    };
-  }, []);
-
+export default function Sidebar({ activeView = 'overview', onNavigate }) {
   const handleNavigation = (view) => {
-    if (typeof window === 'undefined') return;
-
-    const target = `/dashboard?view=${encodeURIComponent(view)}`;
-    window.history.pushState({ view }, '', target);
-    setActiveView(view);
-    window.dispatchEvent(new Event('arcova:navigate'));
+    if (typeof onNavigate === 'function') {
+      onNavigate(view);
+    }
   };
 
   return (
