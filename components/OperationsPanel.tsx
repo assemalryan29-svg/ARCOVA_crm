@@ -107,7 +107,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
         <div style={{ display:'grid',gap:'0.5rem' }}>{appointments.map((a)=><div key={a.id} style={{ background:'#131822',border:'1px solid #1f2937',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem' }}>{a.leads?.name||'—'} · {new Date(a.scheduled_at).toLocaleString('ar-EG')} · {a.status}</div>)}</div>
       </div>}
 
-      {active === 'finance' && canFinance && <div style={{ display:'grid',gap:'0.7rem' }}>
+      {active === 'finance' && canFinanceView && <div style={{ display:'grid',gap:'0.7rem' }}>
         {canFinanceManage && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'deal_payments',{deal_id:f.get('deal_id'),installment_no:Number(f.get('installment_no')),due_date:f.get('due_date'),amount:Number(f.get('amount')),status:'Pending'},'فشل إضافة الدفعة');}} style={{ background:'#131822',padding:'0.8rem',borderRadius:'8px',border:'1px solid #1f2937',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
           <select name='deal_id' required style={selectStyle}><option value=''>الصفقة</option>{deals.map((d)=><option key={d.id} value={d.id}>{d.leads?.name||d.id}</option>)}</select>
           <Input name='installment_no' placeholder='رقم القسط' type='number' required />
