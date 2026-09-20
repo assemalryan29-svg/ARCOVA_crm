@@ -1,7 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
-import { normalizeRole, getLeadScope, canManageUsers, canManageTeam } from '../lib/permissions';
+import PipelineBoard from '../components/PipelineBoard';
+import TeamController from '../components/TeamController';
+import OperationsPanel from '../components/OperationsPanel';
+import ReportsPanel from '../components/ReportsPanel';
+import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { validateLeadInput, getLeadDuplicateKey } from '../lib/leadValidation';
 
 export default function Dashboard() {
@@ -32,7 +36,10 @@ export default function Dashboard() {
     projects: 'projects',
     tasks: 'tasks',
     campaigns: 'campaigns',
+    pipeline: 'pipeline',
     leaderboard: 'leaderboard',
+    operations: 'operations',
+    reports: 'reports',
     audit: 'audit',
     team: 'team'
   };
@@ -166,19 +173,34 @@ export default function Dashboard() {
       setCurrentUser(session.user);
 
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
-      const role = normalizeRole(roleData?.role);
+      const { data: profileData } = await supabase.from('profiles').select('id,email,full_name,role,active,team_leader_id,manager_id,team_id').eq('id', session.user.id).single();
+      const role = normalizeRole(roleData?.role || profileData?.role);
       setUserRole(role);
 
-      const { data: usersData } = await supabase.from('user_roles').select('*');
-      if (usersData) setTeamMembers(usersData || []);
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id,email,full_name,role,active,team_leader_id,manager_id,team_id')
+        .order('email');
+      if (profilesData) setTeamMembers(profilesData || []);
 
-      let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
       const leadScope = getLeadScope(role);
-      if (leadScope === 'own' || leadScope === 'team') {
-        leadsQuery = leadsQuery.eq('assigned_to', session.user.id);
+      let leadsData = [];
+      if (leadScope === 'all') {
+        const result = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+        leadsData = result.data || [];
+      } else if (leadScope === 'team') {
+        const teamIds = (profilesData || [])
+          .filter((p) => p.id === session.user.id || p.team_leader_id === session.user.id || (profileData?.team_id && p.team_id === profileData.team_id))
+          .map((p) => p.id);
+        const result = teamIds.length
+          ? await supabase.from('leads').select('*').in('assigned_to', teamIds).order('created_at', { ascending: false })
+          : await supabase.from('leads').select('*').eq('assigned_to', session.user.id).order('created_at', { ascending: false });
+        leadsData = result.data || [];
+      } else if (leadScope === 'own') {
+        const result = await supabase.from('leads').select('*').eq('assigned_to', session.user.id).order('created_at', { ascending: false });
+        leadsData = result.data || [];
       }
-      const { data: leadsData } = await leadsQuery;
-      if (leadsData) setLeads(leadsData || []);
+      setLeads(leadsData);
 
       const { data: projData } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
       if (projData) setProjects(projData || []);
@@ -533,7 +555,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRight: '1px solid #374151', paddingRight: '1rem' }}>
             <span style={{ fontSize: '0.8rem', color: '#e5e7eb', fontWeight: '500' }}>{currentUser?.email}</span>
             <span style={{ 
-              backgroundColor: userRole === 'admin' ? '#991b1b' : userRole === 'marketing' ? '#9333ea' : '#075985', 
+              backgroundColor: userRole === 'admin' ? '#991b1b' : userRole === 'ceo' ? '#7c3aed' : userRole === 'finance' ? '#047857' : userRole === 'manager' ? '#0369a1' : userRole === 'team_leader' ? '#0f766e' : userRole === 'marketing' ? '#9333ea' : '#075985', 
               color: '#fff', 
               padding: '0.15rem 0.6rem', 
               borderRadius: '12px', 
@@ -541,11 +563,11 @@ export default function Dashboard() {
               fontWeight: 'bold',
               textTransform: 'uppercase'
             }}>
-              {userRole === 'admin' ? 'Admin' : userRole === 'marketing' ? 'Marketing' : 'Sales'}
+              {getRoleLabel(userRole)}
             </span>
           </div>
 
-          {userRole === 'admin' && (
+          {canManageUsers(userRole) && (
             <button onClick={() => setShowUserModal(true)} style={{ padding: '0.3rem 0.7rem', backgroundColor: 'transparent', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '15px', cursor: 'pointer', fontSize: '0.75rem' }}>+ موظف</button>
           )}
           <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} style={{ padding: '0.3rem 0.7rem', backgroundColor: '#374151', color: '#f3f4f6', border: 'none', borderRadius: '15px', cursor: 'pointer', fontSize: '0.75rem' }}>خروج</button>
@@ -560,10 +582,10 @@ export default function Dashboard() {
           <button onClick={() => setActiveTab('tasks')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'tasks' ? '#d4af37' : 'transparent', color: activeTab === 'tasks' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📋 المهام ({tasks.length})</button>
           <button onClick={() => setActiveTab('projects')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'projects' ? '#d4af37' : 'transparent', color: activeTab === 'projects' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏢 المشاريع والوحدات</button>
           <button onClick={() => setActiveTab('campaigns')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'campaigns' ? '#d4af37' : 'transparent', color: activeTab === 'campaigns' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>📢 الحملات</button>
-          {userRole === 'admin' && (
+          {can(userRole, PERMISSIONS.REPORTS_VIEW) && (
             <>
               <button onClick={() => setActiveTab('leaderboard')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'leaderboard' ? '#d4af37' : 'transparent', color: activeTab === 'leaderboard' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🏆 أداء المبيعات</button>
-              <button onClick={() => setActiveTab('audit')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'audit' ? '#d4af37' : 'transparent', color: activeTab === 'audit' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🛡️ سجل التدقيق</button>
+              {can(userRole, PERMISSIONS.AUDIT_VIEW) && <button onClick={() => setActiveTab('audit')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'audit' ? '#d4af37' : 'transparent', color: activeTab === 'audit' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>🛡️ سجل التدقيق</button>
               <button onClick={() => setActiveTab('team')} style={{ padding: '0.5rem 1rem', backgroundColor: activeTab === 'team' ? '#d4af37' : 'transparent', color: activeTab === 'team' ? '#0c0f17' : '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>فريق العمل</button>
             </>
           )}
@@ -593,6 +615,18 @@ export default function Dashboard() {
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#a855f7', marginTop: '0.3rem' }}>{totalDealsValue.toLocaleString()} ج</div>
           </div>
         </div>
+
+        {activeTab === 'pipeline' && can(userRole, PERMISSIONS.PIPELINE_VIEW) && (
+          <PipelineBoard leads={filteredLeads} statusOptions={statusOptions} onStatusChange={handleUpdateLeadStatus} onOpenLead={handleOpenLeadDetails} />
+        )}
+
+        {activeTab === 'operations' && can(userRole, PERMISSIONS.DEALS_VIEW) && (
+          <OperationsPanel currentUser={currentUser} userRole={userRole} leads={leads} units={units} />
+        )}
+
+        {activeTab === 'reports' && can(userRole, PERMISSIONS.REPORTS_VIEW) && (
+          <ReportsPanel leads={leads} tasks={tasks} />
+        )}
 
         {activeTab === 'list' && (
           <div>
@@ -827,7 +861,7 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>المشاريع والوحدات</h3>
-              {(userRole === 'admin' || userRole === 'marketing') && (
+              {canManageTeam(userRole) && (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button onClick={() => setShowProjectModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#1f2937', color: '#d4af37', border: '1px solid #d4af37', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مشروع</button>
                   <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة وحدة</button>
@@ -930,7 +964,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'team' && userRole === 'admin' && (
+        {activeTab === 'team' && can(userRole, PERMISSIONS.TEAMS_VIEW) && (
           <div style={{ backgroundColor: '#131822', padding: '1.2rem', borderRadius: '6px', border: '1px solid #1f2937' }}>
             <h3 style={{ color: '#d4af37', fontFamily: 'serif', fontSize: '1rem', marginBottom: '1rem' }}>إدارة فريق العمل</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
@@ -1127,7 +1161,7 @@ export default function Dashboard() {
       )}
 
       {/* مودال استيراد الإكسيل */}
-      {showImportModal && userRole === 'admin' && (
+      {showImportModal && can(userRole, PERMISSIONS.LEADS_IMPORT) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#131822', padding: '1.5rem', borderRadius: '6px', width: '350px', border: '1px solid #34d399' }}>
             <h3 style={{ color: '#34d399', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>📥 استيراد من Excel / CSV</h3>
