@@ -25,12 +25,22 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
 
   const load = async () => {
     setLoading(true);
-    const [p, r, t] = await Promise.all([
+    const [p, ur, r, t] = await Promise.all([
       supabase.from('profiles').select('id,email,full_name,role,active,team_leader_id,manager_id,team_id').order('email'),
+      supabase.from('user_roles').select('id,email,role,active'),
       supabase.from('app_roles').select('key,name_ar,name_en').order('name_ar'),
       supabase.from('teams').select('id,name,manager_id,leader_id,active').order('name')
     ]);
-    setProfiles(p.data || []);
+
+    const roleById = new Map((ur.data || []).map((row) => [row.id, row]));
+    const mergedProfiles = (p.data || []).map((profile) => {
+      const sourceRole = roleById.get(profile.id);
+      return sourceRole
+        ? { ...profile, role: sourceRole.role, active: sourceRole.active !== false }
+        : profile;
+    });
+
+    setProfiles(mergedProfiles);
     setRoles(r.data || []);
     setTeams(t.data || []);
     setLoading(false);
