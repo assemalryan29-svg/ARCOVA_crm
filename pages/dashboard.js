@@ -39,7 +39,7 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') return 'list';
-    const view = new URLSearchParams(window.location.search).get('view') || 'overview';
+    const view = window.location.hash.replace('#', '') || 'leads';
     return viewToTab[view] || 'list';
   });
   
@@ -78,6 +78,10 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
+
+  const handleSidebarNavigation = (view) => {
+    setActiveTab(viewToTab[view] || 'list');
+  };
   
   const audioCtxRef = useRef(null);
 
@@ -92,6 +96,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  // دعم التنقل الأصلي عبر Hash: يعمل حتى على الموبايل بدون Reload.
+  useEffect(() => {
+    const syncHash = () => {
+      if (typeof window === 'undefined') return;
+      const view = window.location.hash.replace('#', '') || 'leads';
+      setActiveTab(viewToTab[view] || 'list');
+    };
+
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
   }, []);
 
   useEffect(() => {
@@ -458,7 +475,7 @@ export default function Dashboard() {
 
   return (
     <div className="arcova-dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#0c0f17', color: '#f3f4f6', fontFamily: 'sans-serif', direction: 'rtl', display: 'flex' }}>
-      <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={(view) => setActiveTab(viewToTab[view] || "list")} />
+      <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} />
       <div className="arcova-dashboard-content" style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
         <style jsx>{`
           .arcova-dashboard-shell { flex-direction: row; width: 100%; }
