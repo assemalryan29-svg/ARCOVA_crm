@@ -17,12 +17,19 @@ export default function Document() {
 
           /* ARCOVA global responsive foundation */
           button, input, select, textarea { max-width: 100%; font-family: inherit; }
-          button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+          button {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 40px;
+            border-radius: 10px !important;
+            transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+          }
+          button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+          button:active { transform: translateY(0); }
           button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
             outline: 2px solid #fbbf24;
             outline-offset: 2px;
           }
-          button:hover { filter: brightness(1.08); }
 
           /* The old central tab strip is duplicated by the Sidebar navigation. */
           .arcova-dashboard-content > header + div {
