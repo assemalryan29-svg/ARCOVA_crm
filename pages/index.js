@@ -1,73 +1,14 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
+const c = { bg: '#f5efe3', surface: '#fffaf0', border: '#d9c5a4', gold: '#b08a4a', dark: '#765522', text: '#3f321f', muted: '#806f56', danger: '#a7352b' };
+const input = { width: '100%', minHeight: 46, padding: '11px 12px', borderRadius: 11, border: `1px solid ${c.border}`, background: c.surface, color: c.text, font: 'inherit', boxSizing: 'border-box' };
+const button = { minHeight: 46, border: 0, borderRadius: 11, background: c.gold, color: '#fffaf0', fontWeight: 800, cursor: 'pointer' };
+
 export default function Home() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg('');
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password,
-      });
-
-      if (error) {
-        setErrorMsg(error.message);
-        setLoading(false);
-      } else if (data?.user) {
-        window.location.href = '/dashboard';
-      }
-    } catch (err) {
-      setErrorMsg(err.message);
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0c0f17', color: '#fff', fontFamily: 'sans-serif', direction: 'rtl', padding: '1rem' }}>
-      <form onSubmit={handleLogin} style={{ backgroundColor: '#131822', padding: '2.5rem 2rem', borderRadius: '12px', width: '100%', maxWidth: '400px', border: '1px solid #d4af37', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', textAlign: 'center' }}>
-        
-        {/* اللوجو الذهبي الفاخر (AV) */}
-        <div style={{ marginBottom: '2rem' }}>
-          <div style={{
-            width: '55px',
-            height: '75px',
-            border: '2px solid #d4af37',
-            margin: '0 auto 1rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 10px rgba(212, 175, 55, 0.2)'
-          }}>
-            <span style={{ color: '#d4af37', fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'serif', lineHeight: 1 }}>AV</span>
-          </div>
-
-          <h2 style={{ textAlign: 'center', margin: 0, color: '#d4af37', fontFamily: 'serif', fontSize: '1.5rem', letterSpacing: '3px' }}>ARCOVA</h2>
-        </div>
-
-        {errorMsg && <div style={{ backgroundColor: '#991b1b', color: '#fff', padding: '0.6rem', borderRadius: '4px', marginBottom: '1rem', textAlign: 'center', fontSize: '0.85rem' }}>{errorMsg}</div>}
-
-        <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
-          <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: '#d4af37' }}>البريد الإلكتروني</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: '100%', padding: '0.7rem', borderRadius: '6px', border: '1px solid #374151', backgroundColor: '#0c0f17', color: '#fff', boxSizing: 'border-box', outline: 'none' }} />
-        </div>
-
-        <div style={{ marginBottom: '1.5rem', textAlign: 'right' }}>
-          <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: '#d4af37' }}>كلمة المرور</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: '100%', padding: '0.7rem', borderRadius: '6px', border: '1px solid #374151', backgroundColor: '#0c0f17', color: '#fff', boxSizing: 'border-box', outline: 'none' }} />
-        </div>
-
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.8rem', backgroundColor: '#d4af37', color: '#0c0f17', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem' }}>
-          {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
-        </button>
-      </form>
-    </div>
-  );
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false); const [forgot, setForgot] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState('');
+  const submit = async (e) => { e.preventDefault(); setLoading(true); setError(''); setMessage(''); if (forgot) { const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/settings` }); if (err) setError(err.message); else setMessage('تم إرسال رابط استعادة كلمة المرور إلى بريدك.'); } else { const { data, error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password }); if (err) setError('بيانات الدخول غير صحيحة أو الحساب غير مفعل.'); else if (data?.user) window.location.href = '/dashboard'; } setLoading(false); };
+  return <main dir="rtl" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 20, background: `radial-gradient(circle at top, #fffaf0 0%, ${c.bg} 55%, #eadcc5 100%)`, fontFamily: 'Tahoma, Segoe UI, Arial, sans-serif', color: c.text }}><section style={{ width: '100%', maxWidth: 430, background: 'rgba(255,250,240,.97)', border: `1px solid ${c.border}`, borderRadius: 24, padding: '34px 28px', boxShadow: '0 18px 55px rgba(118,85,34,.15)' }}><div style={{ textAlign: 'center', marginBottom: 28 }}><img src="/arcova-logo.svg" alt="ARCOVA Real Estate" style={{ width: 'min(260px,100%)', height: 'auto' }} /><div style={{ marginTop: 12, color: c.muted, fontSize: 13 }}>نظام إدارة العملاء والعقارات</div></div><h1 style={{ color: c.dark, fontSize: 24, margin: '0 0 8px', textAlign: 'center' }}>{forgot ? 'استعادة كلمة المرور' : 'تسجيل الدخول'}</h1><p style={{ color: c.muted, fontSize: 13, lineHeight: 1.8, textAlign: 'center', marginBottom: 22 }}>{forgot ? 'أدخل بريدك الإلكتروني لإرسال رابط الاستعادة.' : 'مرحبًا بك في نظام ARCOVA CRM'}</p>{message && <div role="status" style={{ background: '#e8f4ec', color: '#2d7a58', padding: 11, borderRadius: 10, marginBottom: 14 }}>{message}</div>}{error && <div role="alert" style={{ background: '#fff1ee', color: c.danger, padding: 11, borderRadius: 10, marginBottom: 14 }}>{error}</div>}<form onSubmit={submit} style={{ display: 'grid', gap: 14 }}><label style={label}>البريد الإلكتروني<input type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} style={input} /></label>{!forgot && <label style={label}>كلمة المرور<input type="password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} style={input} /></label>}<button type="submit" disabled={loading} style={button}>{loading ? 'جاري المعالجة...' : forgot ? 'إرسال رابط الاستعادة' : 'دخول إلى النظام'}</button></form><button type="button" onClick={() => { setForgot(v => !v); setError(''); setMessage(''); }} style={link}>{forgot ? 'العودة لتسجيل الدخول' : 'نسيت كلمة المرور؟'}</button></section><style jsx>{`input:focus{box-shadow:0 0 0 3px rgba(176,138,74,.18)}button:disabled{opacity:.6;cursor:not-allowed}@media(max-width:480px){section{padding:28px 20px!important}}`}</style></main>;
 }
+const label = { display: 'flex', flexDirection: 'column', gap: 8, color: c.text, fontWeight: 700, fontSize: 14 };
+const link = { margin: '18px auto 0', display: 'block', border: 0, background: 'transparent', color: c.dark, fontWeight: 700, cursor: 'pointer', fontSize: 13 };
