@@ -4,15 +4,15 @@
   "description": "ARCOVA Enterprise Real Estate CRM",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#0c0f17",
-  "theme_color": "#0c0f17",
+  "background_color": "#f5efe3",
+  "theme_color": "#b08a4a",
   "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }
