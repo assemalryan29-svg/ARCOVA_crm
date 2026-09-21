@@ -488,12 +488,48 @@ export default function Dashboard() {
   const handleSaveLeadExtendedDetails = async (e) => {
     e.preventDefault();
     if (!selectedLead || !can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
-    const { error } = await supabase.from('leads').update({
-      budget: selectedLead.budget ? parseFloat(selectedLead.budget) : null,
-      preferred_area: selectedLead.preferred_area,
-      desired_unit_type: selectedLead.desired_unit_type
-    }).eq('id', selectedLead.id);
-    if (!error) { alert('تم تحديث التفاصيل'); fetchData(); }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
+        return;
+      }
+
+      const response = await fetch('/api/leads/update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({
+          id: selectedLead.id,
+          name: selectedLead.name,
+          phone: selectedLead.phone,
+          email: selectedLead.email,
+          lead_source: selectedLead.lead_source,
+          budget: selectedLead.budget,
+          preferred_area: selectedLead.preferred_area,
+          preferred_location: selectedLead.preferred_location,
+          desired_unit_type: selectedLead.desired_unit_type,
+          folder: selectedLead.folder
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        alert('فشل تحديث بيانات العميل: ' + (result.error || 'خطأ غير معروف'));
+        return;
+      }
+
+      setLeads(prev => prev.map(lead => lead.id === selectedLead.id ? { ...lead, ...result.lead } : lead));
+      setSelectedLead(prev => ({ ...prev, ...result.lead }));
+      alert('تم تحديث بيانات العميل بنجاح');
+      fetchLeadLogs(selectedLead.id);
+      fetchData();
+    } catch (err) {
+      alert('تعذر الاتصال بالخادم: ' + err.message);
+    }
   };
 
   const handleSaveFollowUp = async (leadId, dateValue) => {
@@ -618,6 +654,42 @@ export default function Dashboard() {
     if (!error) { alert('تم حفظ الخطة المالية في ملف العميل'); fetchLeadLogs(selectedLead.id); }
   };
 
+  const handleArchiveLead = async () => {
+    if (!selectedLead || !can(userRole, PERMISSIONS.LEADS_DELETE)) return;
+    const confirmed = window.confirm('هل تريد أرشفة العميل "' + (selectedLead.name || 'بدون اسم') + '"؟ سيختفي من القائمة الحالية ويمكن الاحتفاظ به في قاعدة البيانات.');
+    if (!confirmed) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
+        return;
+      }
+
+      const response = await fetch('/api/records/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({ table: 'leads', id: selectedLead.id, mode: 'archive' })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        alert('فشل أرشفة العميل: ' + (result.error || 'خطأ غير معروف'));
+        return;
+      }
+
+      setLeads(prev => prev.filter(lead => lead.id !== selectedLead.id));
+      setSelectedLead(null);
+      alert('تمت أرشفة العميل بنجاح');
+      fetchData();
+    } catch (err) {
+      alert('تعذر الاتصال بالخادم: ' + err.message);
+    }
+  };
+
   // تصفية العملاء
   const filteredLeads = leads.filter(l => {
     const matchesSearch = (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.phone || '').includes(searchQuery);
@@ -632,7 +704,7 @@ export default function Dashboard() {
       matchesCampaignOrProject = l.lead_source === 'Marketing' || l.assigned_to === currentUser.id;
     }
 
-    return matchesSearch && matchesFolder && matchesCampaignOrProject;
+    return l.status !== 'Archived' && matchesSearch && matchesFolder && matchesCampaignOrProject;
   });
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -961,8 +1033,7 @@ export default function Dashboard() {
                     <th style={{ padding: '0.8rem' }}>تاريخ الاستحقاق</th>
                     <th style={{ padding: '0.8rem' }}>التفاصيل</th>
                     <th style={{ padding: '0.8rem' }}>الحالة</th>
-                  </tr>
-                </thead>
+                  </tr>                </thead>
                 <tbody>
                   {tasks.map(task => (
                     <tr key={task.id} style={{ borderBottom: '1px solid #d9c5a4' }}>
@@ -1246,7 +1317,12 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <button onClick={() => setSelectedLead(null)} style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>إغلاق</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginTop: '1rem' }}>
+              {can(userRole, PERMISSIONS.LEADS_DELETE) && (
+                <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>🗃️ أرشفة العميل</button>
+              )}
+              <button type="button" onClick={() => setSelectedLead(null)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginLeft: 'auto' }}>إغلاق</button>
+            </div>
           </div>
         </div>
       )}
