@@ -1,0 +1,93 @@
+/* ARCOVA unified dashboard theme */
+.arcova-dashboard-shell {
+  --arcova-bg: #f5efe3;
+  --arcova-surface: #fffaf0;
+  --arcova-surface-2: #eee2cf;
+  --arcova-border: #d9c5a4;
+  --arcova-gold: #b08a4a;
+  --arcova-gold-dark: #765522;
+  --arcova-text: #3f321f;
+  --arcova-muted: #806f56;
+  background: var(--arcova-bg) !important;
+  color: var(--arcova-text) !important;
+}
+
+.arcova-dashboard-content,
+.arcova-dashboard-content main {
+  background: var(--arcova-bg) !important;
+  color: var(--arcova-text) !important;
+}
+
+.arcova-dashboard-content header,
+.arcova-dashboard-content main > div > div,
+.arcova-dashboard-content main > div > section,
+.arcova-dashboard-content table,
+.arcova-dashboard-content [role='dialog'] {
+  color: var(--arcova-text);
+}
+
+.arcova-dashboard-content header {
+  background: var(--arcova-surface) !important;
+  border-bottom-color: var(--arcova-border) !important;
+}
+
+.arcova-dashboard-content h1,
+.arcova-dashboard-content h2,
+.arcova-dashboard-content h3,
+.arcova-dashboard-content h4 {
+  color: var(--arcova-gold-dark) !important;
+}
+
+.arcova-dashboard-content input,
+.arcova-dashboard-content select,
+.arcova-dashboard-content textarea {
+  background: var(--arcova-surface) !important;
+  color: var(--arcova-text) !important;
+  border-color: var(--arcova-border) !important;
+}
+
+.arcova-dashboard-content input::placeholder,
+.arcova-dashboard-content textarea::placeholder {
+  color: var(--arcova-muted) !important;
+}
+
+.arcova-dashboard-content table thead tr {
+  background: var(--arcova-surface-2) !important;
+  color: var(--arcova-gold-dark) !important;
+  border-bottom-color: var(--arcova-border) !important;
+}
+
+.arcova-dashboard-content table tbody tr {
+  background: var(--arcova-surface) !important;
+  border-bottom-color: var(--arcova-border) !important;
+}
+
+.arcova-dashboard-content table td,
+.arcova-dashboard-content table th {
+  color: var(--arcova-text) !important;
+  border-bottom-color: var(--arcova-border) !important;
+}
+
+.arcova-dashboard-content button {
+  border-color: var(--arcova-border);
+}
+
+.arcova-dashboard-content button:not([disabled]) {
+  accent-color: var(--arcova-gold);
+}
+
+@media (max-width: 768px) {
+  .arcova-dashboard-content main {
+    padding: 12px !important;
+  }
+
+  .arcova-dashboard-content header > div:last-child {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .arcova-dashboard-content table {
+    min-width: 680px;
+  }
+}
