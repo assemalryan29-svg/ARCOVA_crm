@@ -1,0 +1,12 @@
+/* ARCOVA final visual normalization layer */
+:root{--arcova-bg:#f5efe3;--arcova-surface:#fffaf0;--arcova-border:#d9c5a4;--arcova-gold:#b08a4a;--arcova-dark:#765522;--arcova-text:#3f321f;--arcova-muted:#806f56}
+html,body{direction:rtl;font-family:Tahoma,"Segoe UI",Arial,sans-serif!important;letter-spacing:normal!important;word-spacing:normal!important}
+.arcova-dashboard-content *{font-family:Tahoma,"Segoe UI",Arial,sans-serif!important;letter-spacing:normal!important;word-break:normal!important;overflow-wrap:normal!important;hyphens:none!important}
+.arcova-dashboard-content [style*="color: '#fff'"],.arcova-dashboard-content [style*="color: '#ffffff'"],.arcova-dashboard-content [style*="color: '#e5e7eb'"],.arcova-dashboard-content [style*="color: '#f3f4f6'"]{color:var(--arcova-text)!important}
+.arcova-dashboard-content [style*="color: '#34d399'"],.arcova-dashboard-content [style*="color: '#60a5fa'"],.arcova-dashboard-content [style*="color: '#a855f7'"],.arcova-dashboard-content [style*="color: '#f59e0b'"]{color:var(--arcova-dark)!important}
+.arcova-dashboard-content header{background:var(--arcova-surface)!important;color:var(--arcova-text)!important;border-color:var(--arcova-border)!important}
+.arcova-dashboard-content header>div{background:var(--arcova-surface)!important;color:var(--arcova-text)!important;box-shadow:0 4px 15px rgba(118,85,34,.08)!important}
+.arcova-dashboard-content table td,.arcova-dashboard-content table th{white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important;line-height:1.8!important}
+.arcova-dashboard-content input::placeholder,.arcova-dashboard-content textarea::placeholder{opacity:1!important;color:var(--arcova-muted)!important}
+.arcova-dashboard-content button:focus-visible,.arcova-dashboard-content a:focus-visible,.arcova-dashboard-content input:focus-visible,.arcova-dashboard-content select:focus-visible{outline:2px solid var(--arcova-gold)!important;outline-offset:2px}
+@media(max-width:768px){.arcova-dashboard-content{overflow-x:hidden!important}.arcova-dashboard-content main{padding:12px!important}.arcova-dashboard-content table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}.arcova-dashboard-content header{padding:12px!important;gap:10px!important}.arcova-dashboard-content header>div{max-width:100%;flex-wrap:wrap!important}.arcova-dashboard-content header span{max-width:100%;overflow-wrap:anywhere!important}}
