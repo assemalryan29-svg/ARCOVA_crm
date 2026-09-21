@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import '../styles/arcova-theme.css';
+import '../styles/arcova-dashboard-theme.css';
 
 export default function App({ Component, pageProps }) {
   useEffect(() => {
