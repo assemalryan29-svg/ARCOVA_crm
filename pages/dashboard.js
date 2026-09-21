@@ -710,11 +710,12 @@ export default function Dashboard() {
   const todayStr = new Date().toISOString().slice(0, 10);
   const dueFollowUps = followups.filter((f) => f.status === 'Pending' && f.followup_date && new Date(f.followup_date).toISOString().slice(0, 10) <= todayStr);
 
-  const totalLeadsCount = leads.length;
-  const interestedCount = leads.filter(l => l.status === 'Interested').length;
-  const closedWonCount = leads.filter(l => l.status === 'Closed Won').length;
+  const activeLeads = leads.filter(l => l.status !== 'Archived');
+  const totalLeadsCount = activeLeads.length;
+  const interestedCount = activeLeads.filter(l => l.status === 'Interested').length;
+  const closedWonCount = activeLeads.filter(l => l.status === 'Closed Won').length;
   const conversionRate = totalLeadsCount > 0 ? ((closedWonCount / totalLeadsCount) * 100).toFixed(1) : 0;
-  const totalDealsValue = leads.filter(l => l.status === 'Closed Won' && l.budget).reduce((acc, curr) => acc + Number(curr.budget), 0);
+  const totalDealsValue = activeLeads.filter(l => l.status === 'Closed Won' && l.budget).reduce((acc, curr) => acc + Number(curr.budget), 0);
 
   const visibleViews = [
     ['overview', PERMISSIONS.DASHBOARD_VIEW],
