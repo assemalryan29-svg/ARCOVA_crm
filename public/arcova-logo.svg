@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 230">
+  <rect width="760" height="230" fill="none"/>
+  <g stroke="#b08a4a" fill="none" stroke-width="7">
+    <rect x="18" y="18" width="150" height="194"/>
+  </g>
+  <g fill="#b08a4a">
+    <path d="M43 153 92 48 143 153h-23l-28-60-27 60Z"/>
+    <path d="M43 77 92 181 143 77h-23l-28 60-27-60Z" fill="#765522"/>
+  </g>
+  <text x="202" y="120" font-family="Georgia,serif" font-size="70" letter-spacing="13" fill="#765522">ARCOVA</text>
+  <path d="M205 146H700" stroke="#b08a4a" stroke-width="2"/>
+  <text x="453" y="178" text-anchor="middle" font-family="Georgia,serif" font-size="22" letter-spacing="8" fill="#765522">REAL ESTATE</text>
+</svg>
