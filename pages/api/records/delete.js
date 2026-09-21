@@ -12,13 +12,9 @@ const TABLES = new Set([
 ]);
 
 const ARCHIVE_STATUS = new Set([
+  // Only tables with a compatible archival status are soft-archived.
   'leads',
   'tasks',
-  'calls',
-  'followups',
-  'appointments',
-  'reservations',
-  'deals',
 ]);
 
 const PERMISSION_BY_TABLE = Object.freeze({
@@ -104,7 +100,7 @@ export default async function handler(req, res) {
   if (mode === 'archive') {
     if (!ARCHIVE_STATUS.has(table)) {
       return res.status(400).json({
-        error: 'This record type does not support safe archive yet. Permanent deletion is Admin-only.',
+        error: 'This record type does not support safe archive. Permanent deletion is Admin-only.',
       });
     }
 
