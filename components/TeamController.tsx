@@ -164,12 +164,12 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
           </div>
         )}
 
-        {message && <div style={{ ...mutedStyle, color: '#fbbf24', marginBottom: 12 }}>{message}</div>}
+        {message && <div style={{ ...mutedStyle, color: '#b08a4a', marginBottom: 12 }}>{message}</div>}
 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ color: '#94a3b8', textAlign: 'right' }}>
+              <tr style={{ color: '#806f56', textAlign: 'right' }}>
                 <th style={cellStyle}>الموظف</th>
                 <th style={cellStyle}>الدور</th>
                 <th style={cellStyle}>المدير</th>
@@ -183,10 +183,10 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
               {profiles.map((profile) => {
                 const draft = getDraft(profile);
                 return (
-                  <tr key={profile.id} style={{ borderTop: '1px solid #273244' }}>
+                  <tr key={profile.id} style={{ borderTop: '1px solid #d9c5a4' }}>
                     <td style={cellStyle}>
-                      <div style={{ color: '#fff', fontWeight: 700 }}>{profile.full_name || 'بدون اسم'}</div>
-                      <div style={{ color: '#94a3b8', fontSize: 11 }}>{profile.email}</div>
+                      <div style={{ color: '#3f321f', fontWeight: 700 }}>{profile.full_name || 'بدون اسم'}</div>
+                      <div style={{ color: '#806f56', fontSize: 11 }}>{profile.email}</div>
                     </td>
                     <td style={cellStyle}>
                       <select
@@ -251,8 +251,8 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
                         disabled={!canControlRoles}
                         onClick={() => saveEmployee(profile)}
                         style={{
-                          background: canControlRoles ? '#fbbf24' : '#374151',
-                          color: '#0c0f17',
+                          background: canControlRoles ? '#b08a4a' : '#d9c5a4',
+                          color: '#3f321fdf8',
                           border: 0,
                           borderRadius: 10,
                           padding: '9px 14px',
@@ -286,7 +286,7 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
               <option value="">قائد الفريق</option>
               {leaders.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
             </select>
-            <button type="submit" style={{ background: '#fbbf24', color: '#0c0f17', border: 0, borderRadius: 10, fontWeight: 800 }}>
+            <button type="submit" style={{ background: '#b08a4a', color: '#3f321fdf8', border: 0, borderRadius: 10, fontWeight: 800 }}>
               إضافة الفريق
             </button>
           </div>
@@ -296,10 +296,10 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
   );
 }
 
-const cardStyle = { background: '#131822', border: '1px solid #273244', borderRadius: 14, padding: 16 };
-const titleStyle = { color: '#fbbf24', marginTop: 0 };
-const mutedStyle = { color: '#94a3b8', fontSize: 13, margin: '8px 0' };
-const warningStyle = { color: '#fbbf24', background: '#211b0a', border: '1px solid #7c5b13', borderRadius: 10, padding: 10, marginBottom: 12 };
+const cardStyle = { background: '#3f321faf0', border: '1px solid #d9c5a4', borderRadius: 14, padding: 16 };
+const titleStyle = { color: '#b08a4a', marginTop: 0 };
+const mutedStyle = { color: '#806f56', fontSize: 13, margin: '8px 0' };
+const warningStyle = { color: '#b08a4a', background: '#f1e5d1', border: '1px solid #d9c5a4', borderRadius: 10, padding: 10, marginBottom: 12 };
 const cellStyle = { padding: '10px 8px', verticalAlign: 'middle' };
-const selectStyle = { padding: '8px 9px', background: '#0c0f17', color: '#fff', border: '1px solid #475569', borderRadius: 9, minWidth: 130 };
-const inputStyle = { padding: 10, background: '#0c0f17', color: '#fff', border: '1px solid #475569', borderRadius: 9 };
+const selectStyle = { padding: '8px 9px', background: '#3f321fdf8', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: 9, minWidth: 130 };
+const inputStyle = { padding: 10, background: '#3f321fdf8', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: 9 };
