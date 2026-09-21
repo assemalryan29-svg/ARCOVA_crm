@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import '../styles/arcova-theme.css';
 
 export default function App({ Component, pageProps }) {
   useEffect(() => {
