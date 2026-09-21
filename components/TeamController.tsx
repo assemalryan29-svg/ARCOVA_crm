@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { can, PERMISSIONS } from '../lib/permissions';
 
 const ROLE_OPTIONS = [
   ['admin', 'مدير النظام'],
@@ -25,8 +26,8 @@ const emptyDraft = (profile) => ({
 
 export default function TeamController({ userRole = 'sales', onSaved }) {
   const role = normalize(userRole);
-  const canControlRoles = role === 'admin' || role === 'ceo';
-  const canManageStructure = canControlRoles || role === 'manager';
+  const canControlRoles = can(role, PERMISSIONS.USERS_MANAGE);
+  const canManageStructure = can(role, PERMISSIONS.TEAMS_MANAGE);
 
   const [profiles, setProfiles] = useState([]);
   const [teams, setTeams] = useState([]);

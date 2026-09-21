@@ -865,7 +865,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'reports' && can(userRole, PERMISSIONS.REPORTS_VIEW) && (
-          <ReportsPanel leads={leads} tasks={tasks} />
+          <ReportsPanel leads={leads} tasks={tasks} userRole={userRole} />
         )}
 
         {activeTab === 'list' && (
