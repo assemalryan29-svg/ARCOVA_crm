@@ -15,11 +15,24 @@ html, body {
   padding: 0;
   background: var(--arcova-cream);
   color: var(--arcova-text);
+  font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+  direction: rtl;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-button, input, select, textarea { font: inherit; }
+button, input, select, textarea { font: inherit; letter-spacing: normal !important; }
 input, select, textarea { max-width: 100%; }
+
+/* Arabic shaping/readability: never stretch or separate Arabic glyphs. */
+[dir="rtl"], [dir="rtl"] * {
+  font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+  letter-spacing: normal !important;
+  word-spacing: normal;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+}
 
 /* ARCOVA visual system: normalize legacy inline dashboard colors. */
 .arcova-dashboard-content,
