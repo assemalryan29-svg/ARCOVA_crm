@@ -1,40 +1,37 @@
-/* ARCOVA unified dashboard theme */
-.arcova-dashboard-shell {
+/* ARCOVA CRM - unified visual system */
+:root {
   --arcova-bg: #f5efe3;
   --arcova-surface: #fffaf0;
   --arcova-surface-2: #eee2cf;
   --arcova-border: #d9c5a4;
   --arcova-gold: #b08a4a;
+  --arcova-gold-light: #d6b77f;
   --arcova-gold-dark: #765522;
   --arcova-text: #3f321f;
   --arcova-muted: #806f56;
-  background: var(--arcova-bg) !important;
-  color: var(--arcova-text) !important;
+  --arcova-danger: #a7352b;
+  --arcova-success: #2d7a58;
+  --arcova-shadow: 0 12px 30px rgba(118, 85, 34, .09);
 }
 
+.arcova-dashboard-shell,
 .arcova-dashboard-content,
 .arcova-dashboard-content main {
   background: var(--arcova-bg) !important;
   color: var(--arcova-text) !important;
 }
 
-.arcova-dashboard-content header,
-.arcova-dashboard-content main > div > div,
-.arcova-dashboard-content main > div > section,
-.arcova-dashboard-content table,
-.arcova-dashboard-content [role='dialog'] {
-  color: var(--arcova-text);
-}
-
-.arcova-dashboard-content header {
-  background: var(--arcova-surface) !important;
-  border-bottom-color: var(--arcova-border) !important;
+.arcova-dashboard-content,
+.arcova-dashboard-content * {
+  box-sizing: border-box;
 }
 
 .arcova-dashboard-content h1,
 .arcova-dashboard-content h2,
 .arcova-dashboard-content h3,
-.arcova-dashboard-content h4 {
+.arcova-dashboard-content h4,
+.arcova-dashboard-content h5,
+.arcova-dashboard-content h6 {
   color: var(--arcova-gold-dark) !important;
 }
 
@@ -43,51 +40,123 @@
 .arcova-dashboard-content textarea {
   background: var(--arcova-surface) !important;
   color: var(--arcova-text) !important;
-  border-color: var(--arcova-border) !important;
+  border: 1px solid var(--arcova-border) !important;
+  border-radius: 10px;
+  outline-color: var(--arcova-gold);
 }
 
 .arcova-dashboard-content input::placeholder,
 .arcova-dashboard-content textarea::placeholder {
   color: var(--arcova-muted) !important;
+  opacity: 1;
+}
+
+.arcova-dashboard-content table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--arcova-surface) !important;
 }
 
 .arcova-dashboard-content table thead tr {
   background: var(--arcova-surface-2) !important;
   color: var(--arcova-gold-dark) !important;
-  border-bottom-color: var(--arcova-border) !important;
+  border-bottom: 1px solid var(--arcova-border) !important;
 }
 
-.arcova-dashboard-content table tbody tr {
+.arcova-dashboard-content table tbody tr,
+.arcova-dashboard-content table tbody tr:nth-child(even),
+.arcova-dashboard-content table tbody tr:nth-child(odd) {
   background: var(--arcova-surface) !important;
-  border-bottom-color: var(--arcova-border) !important;
+  color: var(--arcova-text) !important;
 }
 
 .arcova-dashboard-content table td,
 .arcova-dashboard-content table th {
   color: var(--arcova-text) !important;
-  border-bottom-color: var(--arcova-border) !important;
+  border-bottom: 1px solid var(--arcova-border) !important;
 }
 
 .arcova-dashboard-content button {
   border-color: var(--arcova-border);
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
 }
 
-.arcova-dashboard-content button:not([disabled]) {
-  accent-color: var(--arcova-gold);
+.arcova-dashboard-content button:focus-visible,
+.arcova-dashboard-content a:focus-visible,
+.arcova-dashboard-content input:focus-visible,
+.arcova-dashboard-content select:focus-visible,
+.arcova-dashboard-content textarea:focus-visible {
+  outline: 2px solid var(--arcova-gold);
+  outline-offset: 2px;
+}
+
+/* Legacy inline colors used by the old dark dashboard. */
+.arcova-dashboard-content [style*="#131822"],
+.arcova-dashboard-content [style*="#0c0f17"],
+.arcova-dashboard-content [style*="#111827"],
+.arcova-dashboard-content [style*="#1f2937"],
+.arcova-dashboard-content [style*="#273244"] {
+  background-color: var(--arcova-surface) !important;
+  border-color: var(--arcova-border) !important;
+}
+
+.arcova-dashboard-content [style*="#d4af37"],
+.arcova-dashboard-content [style*="#fbbf24"] {
+  color: var(--arcova-gold-dark) !important;
+}
+
+.arcova-dashboard-content [style*="#34d399"],
+.arcova-dashboard-content [style*="#10b981"] {
+  color: var(--arcova-success) !important;
+}
+
+.arcova-dashboard-content [style*="#ef4444"],
+.arcova-dashboard-content [style*="#dc2626"] {
+  color: var(--arcova-danger) !important;
+}
+
+/* Keep action buttons readable while retaining ARCOVA branding. */
+.arcova-dashboard-content button[style*="#fbbf24"],
+.arcova-dashboard-content button[style*="#d4af37"] {
+  background: var(--arcova-gold) !important;
+  color: #fffaf0 !important;
+  border-color: var(--arcova-gold) !important;
+}
+
+.arcova-dashboard-content button[style*="#34d399"],
+.arcova-dashboard-content button[style*="#10b981"] {
+  border-color: var(--arcova-success) !important;
+  color: var(--arcova-success) !important;
+}
+
+.arcova-dashboard-content button[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {
   .arcova-dashboard-content main {
+    width: 100% !important;
+    min-width: 0 !important;
     padding: 12px !important;
-  }
-
-  .arcova-dashboard-content header > div:last-child {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 8px !important;
+    overflow-x: hidden;
   }
 
   .arcova-dashboard-content table {
-    min-width: 680px;
+    min-width: 0 !important;
+  }
+
+  .arcova-dashboard-content table th,
+  .arcova-dashboard-content table td {
+    padding: 9px 7px !important;
+    font-size: 12px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .arcova-dashboard-content button,
+  .arcova-dashboard-content input,
+  .arcova-dashboard-content select,
+  .arcova-dashboard-content textarea {
+    max-width: 100%;
   }
 }
