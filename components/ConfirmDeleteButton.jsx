@@ -1,14 +1,15 @@
 import { useState } from 'react';
 
 /**
- * ARCOVA reusable destructive-action control.
- * Keeps confirmation consistent across Leads, Tasks, Customer 360 and Operations.
+ * ARCOVA safe record action.
+ * Archive is the default. Permanent deletion must be requested separately and is Admin-only on the API.
  */
 export default function ConfirmDeleteButton({
   table,
   recordId,
   leadId,
-  label = 'حذف',
+  label = 'أرشفة',
+  mode = 'archive',
   onDeleted,
   disabled = false,
   className = '',
@@ -19,7 +20,9 @@ export default function ConfirmDeleteButton({
     if (busy || disabled) return;
 
     const confirmed = window.confirm(
-      'هل أنت متأكد من حذف هذا السجل؟\nلا يمكن التراجع عن هذه العملية.'
+      mode === 'permanent'
+        ? 'تحذير: سيتم حذف السجل نهائيًا. هل أنت متأكد؟'
+        : 'هل أنت متأكد من أرشفة هذا السجل؟ يمكن الاحتفاظ به للمراجعة لاحقًا.'
     );
     if (!confirmed) return;
 
@@ -38,15 +41,15 @@ export default function ConfirmDeleteButton({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ table, id: recordId, lead_id: leadId }),
+        body: JSON.stringify({ table, id: recordId, lead_id: leadId, mode }),
       });
 
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'تعذر حذف السجل');
+      if (!response.ok) throw new Error(result.error || 'تعذر تنفيذ العملية');
 
-      onDeleted?.(recordId);
+      onDeleted?.(recordId, result);
     } catch (error) {
-      window.alert(error.message || 'حدث خطأ أثناء الحذف');
+      window.alert(error.message || 'حدث خطأ أثناء تنفيذ العملية');
     } finally {
       setBusy(false);
     }
