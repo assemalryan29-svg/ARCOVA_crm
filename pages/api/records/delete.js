@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const ALLOWED_TABLES = new Set([
+const TABLES = new Set([
   'leads',
   'tasks',
   'calls',
@@ -9,18 +9,6 @@ const ALLOWED_TABLES = new Set([
   'reservations',
   'deals',
   'deal_payments',
-]);
-
-const ALLOWED_ROLES = new Set([
-  'admin',
-  'manager',
-  'ceo',
-  'finance',
-  'team_leader',
-  'sales',
-  'marketing',
-  'operations',
-  'support',
 ]);
 
 const ARCHIVE_STATUS = new Set([
@@ -32,6 +20,19 @@ const ARCHIVE_STATUS = new Set([
   'reservations',
   'deals',
 ]);
+
+const PERMISSION_BY_TABLE = Object.freeze({
+  leads: 'leads.delete',
+  tasks: 'tasks.manage',
+  calls: 'calls.manage',
+  followups: 'followups.manage',
+  appointments: 'appointments.manage',
+  reservations: 'reservations.manage',
+  deals: 'deals.manage',
+  deal_payments: 'finance.manage',
+});
+
+const PERMANENT_DELETE_ROLES = new Set(['admin']);
 
 function getClient(token) {
   return createClient(
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
   if (!token) return res.status(401).json({ error: 'Missing authorization token' });
 
   const { table, id, lead_id: leadId, mode = 'archive' } = req.body || {};
-  if (!ALLOWED_TABLES.has(table) || !id) {
+  if (!TABLES.has(table) || !id) {
     return res.status(400).json({ error: 'Invalid table or record id' });
   }
   if (!['archive', 'permanent'].includes(mode)) {
@@ -69,16 +70,32 @@ export default async function handler(req, res) {
 
   const { data: roleRow, error: roleError } = await supabase
     .from('user_roles')
-    .select('role')
+    .select('role,active')
     .eq('id', authData.user.id)
     .maybeSingle();
 
   if (roleError) return res.status(500).json({ error: roleError.message });
 
   const role = normalizeRole(roleRow?.role);
-  if (!ALLOWED_ROLES.has(role)) return res.status(403).json({ error: 'Insufficient permissions' });
-  if (mode === 'permanent' && role !== 'admin') {
-    return res.status(403).json({ error: 'Permanent deletion is restricted to Admin.' });
+  if (!roleRow?.active) return res.status(403).json({ error: 'User account is inactive.' });
+
+  if (mode === 'permanent') {
+    if (!PERMANENT_DELETE_ROLES.has(role)) {
+      return res.status(403).json({ error: 'Permanent deletion is restricted to Admin.' });
+    }
+  } else {
+    const permissionKey = PERMISSION_BY_TABLE[table];
+    if (!permissionKey) return res.status(400).json({ error: 'Delete permission is not configured for this record type.' });
+
+    const { data: permission, error: permissionError } = await supabase
+      .from('app_role_permissions')
+      .select('permission_key')
+      .eq('role_key', role)
+      .eq('permission_key', permissionKey)
+      .maybeSingle();
+
+    if (permissionError) return res.status(500).json({ error: permissionError.message });
+    if (!permission) return res.status(403).json({ error: 'You do not have permission to archive this record.' });
   }
 
   let query;
@@ -108,12 +125,11 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: 'Record not found or access denied.' });
   }
 
-  // Audit logging is best-effort so a logging-schema difference cannot undo the record action.
   await supabase.from('audit_logs').insert([{
     user_id: authData.user.id,
-    user_email: authData.user.email,
     action,
-    details: `${action} ${table}:${id}`,
+    table_name: table,
+    details: { record_id: id, mode, role },
   }]);
 
   return res.status(200).json({ ok: true, table, id, mode, action });
