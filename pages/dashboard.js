@@ -1234,6 +1234,11 @@ export default function Dashboard() {
             <p style={{ color: '#806f56', margin: '0.3rem 0', fontSize: '0.8rem' }}>
               {userRole === 'admin' ? selectedLead.phone : `******${(selectedLead.phone || '').slice(-4)}`} | {selectedLead.email || 'بدون إيميل'}
             </p>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
+                {can(userRole, PERMISSIONS.LEADS_DELETE) && (
+                  <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="حذف العميل من القائمة مع الاحتفاظ به في الأرشيف">🗑️ حذف العميل</button>
+                )}
+              </div>
             
             <form onSubmit={handleSaveLeadExtendedDetails} style={{ backgroundColor: '#f5efe3', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #d9c5a4', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ fontSize: '0.8rem', color: '#b08a4a', fontWeight: 'bold' }}>بيانات الاهتمام العقاري:</div>
@@ -1335,11 +1340,8 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginTop: '1rem' }}>
-              {can(userRole, PERMISSIONS.LEADS_DELETE) && (
-                <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>🗃️ أرشفة العميل</button>
-              )}
-              <button type="button" onClick={() => setSelectedLead(null)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginLeft: 'auto' }}>إغلاق</button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+              <button type="button" onClick={() => setSelectedLead(null)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>إغلاق</button>
             </div>
           </div>
         </div>
