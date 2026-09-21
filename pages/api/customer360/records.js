@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   }
 
   const allowed = {
-    calls: ['call_at', 'duration_seconds', 'outcome', 'notes', 'status'],
+    calls: ['call_at', 'duration_seconds', 'outcome', 'notes'],
     followups: ['followup_date', 'type', 'status', 'notes'],
     appointments: ['scheduled_at', 'type', 'status', 'notes'],
     reservations: ['reservation_amount', 'contract_value', 'status', 'expires_at', 'notes', 'unit_id'],
