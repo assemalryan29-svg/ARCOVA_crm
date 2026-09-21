@@ -1033,7 +1033,8 @@ export default function Dashboard() {
                     <th style={{ padding: '0.8rem' }}>تاريخ الاستحقاق</th>
                     <th style={{ padding: '0.8rem' }}>التفاصيل</th>
                     <th style={{ padding: '0.8rem' }}>الحالة</th>
-                  </tr>                </thead>
+                  </tr>
+                </thead>
                 <tbody>
                   {tasks.map(task => (
                     <tr key={task.id} style={{ borderBottom: '1px solid #d9c5a4' }}>
