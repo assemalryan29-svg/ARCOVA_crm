@@ -100,8 +100,33 @@ export default async function handler(req, res) {
   if (!existingLead) return res.status(404).json({ error: 'Lead not found.' });
 
   const elevated = ['admin', 'ceo', 'manager'].includes(role);
-  if (!elevated && existingLead.assigned_to !== userId) {
-    return res.status(403).json({ error: 'You can edit only leads assigned to you.' });
+  let canEdit = elevated || existingLead.assigned_to === userId;
+
+  if (!canEdit && role === 'team_leader' && existingLead.assigned_to) {
+    const { data: targetProfile, error: targetProfileError } = await adminClient
+      .from('profiles')
+      .select('id,team_leader_id,team_id')
+      .eq('id', existingLead.assigned_to)
+      .maybeSingle();
+
+    if (targetProfileError) return res.status(500).json({ error: 'Unable to verify team access.' });
+
+    if (targetProfile?.team_leader_id === userId) {
+      canEdit = true;
+    } else if (targetProfile?.team_id) {
+      const { data: callerProfile, error: callerProfileError } = await adminClient
+        .from('profiles')
+        .select('team_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (callerProfileError) return res.status(500).json({ error: 'Unable to verify team access.' });
+      canEdit = Boolean(callerProfile?.team_id && callerProfile.team_id === targetProfile.team_id);
+    }
+  }
+
+  if (!canEdit) {
+    return res.status(403).json({ error: 'You can edit only leads within your permitted scope.' });
   }
 
   const updates = {
