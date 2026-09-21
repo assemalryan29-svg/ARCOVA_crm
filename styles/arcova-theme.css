@@ -15,7 +15,7 @@ html, body {
   padding: 0;
   background: var(--arcova-cream);
   color: var(--arcova-text);
-  font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+  font-family: Tahoma, "Segoe UI", Arial, sans-serif !important;
   direction: rtl;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,16 +25,14 @@ html, body {
 button, input, select, textarea { font: inherit; letter-spacing: normal !important; }
 input, select, textarea { max-width: 100%; }
 
-/* Arabic shaping/readability: never stretch or separate Arabic glyphs. */
 [dir="rtl"], [dir="rtl"] * {
-  font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+  font-family: Tahoma, "Segoe UI", Arial, sans-serif !important;
   letter-spacing: normal !important;
   word-spacing: normal;
   font-kerning: normal;
   font-variant-ligatures: common-ligatures;
 }
 
-/* ARCOVA visual system: normalize legacy inline dashboard colors. */
 .arcova-dashboard-content,
 .arcova-dashboard-content main {
   min-width: 0;
@@ -65,48 +63,24 @@ input, select, textarea { max-width: 100%; }
 .arcova-dashboard-content main [style*="color: rgb(243, 244, 246)"],
 .arcova-dashboard-content main [style*="color: rgb(229, 231, 235)"],
 .arcova-dashboard-content main [style*="color: '#f3f4f6'"],
-.arcova-dashboard-content main [style*="color: '#e5e7eb'"] {
-  color: var(--arcova-text) !important;
-}
+.arcova-dashboard-content main [style*="color: '#e5e7eb'"] { color: var(--arcova-text) !important; }
 
 .arcova-dashboard-content main [style*="color: rgb(156, 163, 175)"],
-.arcova-dashboard-content main [style*="color: '#9ca3af'"] {
-  color: var(--arcova-muted) !important;
-}
+.arcova-dashboard-content main [style*="color: '#9ca3af'"] { color: var(--arcova-muted) !important; }
 
-.arcova-dashboard-content table {
-  width: 100%;
-  max-width: 100%;
-  border-color: var(--arcova-border) !important;
-}
-
-.arcova-dashboard-content th {
-  background: #eee2cf !important;
-  color: var(--arcova-text) !important;
-  border-color: var(--arcova-border) !important;
-}
-
-.arcova-dashboard-content td {
-  color: var(--arcova-text) !important;
-  border-color: var(--arcova-border) !important;
-}
+.arcova-dashboard-content table { width: 100%; max-width: 100%; border-color: var(--arcova-border) !important; }
+.arcova-dashboard-content th { background: #eee2cf !important; color: var(--arcova-text) !important; border-color: var(--arcova-border) !important; }
+.arcova-dashboard-content td { color: var(--arcova-text) !important; border-color: var(--arcova-border) !important; }
 
 .arcova-dashboard-content input,
 .arcova-dashboard-content select,
-.arcova-dashboard-content textarea {
-  background: #fffaf0 !important;
-  color: var(--arcova-text) !important;
-  border-color: var(--arcova-border) !important;
-}
-
+.arcova-dashboard-content textarea { background: #fffaf0 !important; color: var(--arcova-text) !important; border-color: var(--arcova-border) !important; }
 .arcova-dashboard-content input::placeholder,
 .arcova-dashboard-content textarea::placeholder { color: var(--arcova-muted) !important; }
 
 @media (max-width: 768px) {
   .arcova-dashboard-content { overflow-x: hidden; }
   .arcova-dashboard-content main { padding: 12px !important; }
-  .arcova-dashboard-content input,
-  .arcova-dashboard-content select,
-  .arcova-dashboard-content textarea { min-width: 0 !important; width: 100%; }
+  .arcova-dashboard-content input, .arcova-dashboard-content select, .arcova-dashboard-content textarea { min-width: 0 !important; width: 100%; }
   .arcova-dashboard-content table { font-size: 12px !important; }
 }
