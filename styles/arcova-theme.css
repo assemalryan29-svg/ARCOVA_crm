@@ -1,0 +1,32 @@
+:root {
+  --arcova-cream: #f5efe3;
+  --arcova-card: #fffaf0;
+  --arcova-gold: #b08a4a;
+  --arcova-gold-light: #d6b77f;
+  --arcova-border: #d9c5a4;
+  --arcova-text: #3f321f;
+  --arcova-muted: #806f56;
+}
+
+html, body { margin: 0; padding: 0; background: var(--arcova-cream); color: var(--arcova-text); }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; }
+input, select, textarea { max-width: 100%; }
+
+/* Convert the legacy dark dashboard palette to the ARCOVA identity. */
+[style*="background-color: #131822"], [style*="backgroundColor: '#131822'"] { background-color: var(--arcova-card) !important; color: var(--arcova-text) !important; }
+[style*="background-color: #0c0f17"], [style*="backgroundColor: '#0c0f17'"] { background-color: #fdf8ee !important; color: var(--arcova-text) !important; }
+[style*="#1f2937"] { border-color: var(--arcova-border) !important; }
+[style*="color: '#f3f4f6'"], [style*="color: '#e5e7eb'"] { color: var(--arcova-text) !important; }
+[style*="color: '#9ca3af'"] { color: var(--arcova-muted) !important; }
+
+.arcova-dashboard-content { min-width: 0; background: var(--arcova-cream); }
+.arcova-dashboard-content main { min-width: 0; max-width: 100%; }
+.arcova-dashboard-content table { max-width: 100%; }
+
+@media (max-width: 768px) {
+  .arcova-dashboard-content { overflow-x: hidden; }
+  .arcova-dashboard-content main { padding: 12px !important; }
+  .arcova-dashboard-content input, .arcova-dashboard-content select, .arcova-dashboard-content textarea { min-width: 0 !important; width: 100%; }
+  .arcova-dashboard-content table { font-size: 12px !important; }
+}
