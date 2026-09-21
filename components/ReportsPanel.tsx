@@ -32,7 +32,7 @@ export default function ReportsPanel({ leads = [], tasks = [] }) {
     const a=document.createElement('a'); a.href=url; a.download='ARCOVA_Report.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
-  const Card=({title,value})=><div style={{background:'#3f321faf0',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><div style={{color:'#806f56',fontSize:'0.72rem'}}>{title}</div><div style={{color:'#b08a4a',fontSize:'1.35rem',fontWeight:700,marginTop:'0.25rem'}}>{value}</div></div>;
+  const Card=({title,value})=><div style={{background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><div style={{color:'#806f56',fontSize:'0.72rem'}}>{title}</div><div style={{color:'#b08a4a',fontSize:'1.35rem',fontWeight:700,marginTop:'0.25rem'}}>{value}</div></div>;
 
   return (
     <div style={{display:'grid',gap:'1rem'}}>
@@ -44,10 +44,10 @@ export default function ReportsPanel({ leads = [], tasks = [] }) {
         <Card title='الدفعات غير المسددة' value={pendingPayments.toLocaleString()+' ج'}/>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'1rem'}}>
-        <div style={{background:'#3f321faf0',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><h4 style={{color:'#b08a4a',marginTop:0}}>مراحل العملاء</h4>{Object.entries(statusCount).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'0.3rem 0',borderBottom:'1px solid #d9c5a4',fontSize:'0.78rem'}}><span>{k}</span><strong>{v}</strong></div>)}</div>
-        <div style={{background:'#3f321faf0',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><h4 style={{color:'#b08a4a',marginTop:0}}>مصادر العملاء</h4>{Object.entries(sourceCount).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'0.3rem 0',borderBottom:'1px solid #d9c5a4',fontSize:'0.78rem'}}><span>{k}</span><strong>{v}</strong></div>)}</div>
+        <div style={{background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><h4 style={{color:'#b08a4a',marginTop:0}}>مراحل العملاء</h4>{Object.entries(statusCount).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'0.3rem 0',borderBottom:'1px solid #d9c5a4',fontSize:'0.78rem'}}><span>{k}</span><strong>{v}</strong></div>)}</div>
+        <div style={{background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><h4 style={{color:'#b08a4a',marginTop:0}}>مصادر العملاء</h4>{Object.entries(sourceCount).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'0.3rem 0',borderBottom:'1px solid #d9c5a4',fontSize:'0.78rem'}}><span>{k}</span><strong>{v}</strong></div>)}</div>
       </div>
-      <button type='button' onClick={downloadCsv} style={{justifySelf:'start',padding:'0.55rem 0.9rem',background:'#b08a4a',color:'#3f321fdf8',border:0,borderRadius:'5px',fontWeight:700}}>تصدير التقرير CSV</button>
+      <button type='button' onClick={downloadCsv} style={{justifySelf:'start',padding:'0.55rem 0.9rem',background:'#b08a4a',color:'#fffaf0',border:0,borderRadius:'5px',fontWeight:700}}>تصدير التقرير CSV</button>
     </div>
   );
 }
