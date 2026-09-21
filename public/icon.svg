@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#0c0f17"/>
-  <rect x="84" y="84" width="344" height="344" rx="48" fill="none" stroke="#d4af37" stroke-width="12"/>
-  <path d="M154 356 246 150c4-9 16-9 20 0l92 206h-52l-22-53H226l-22 53h-50Zm90-104h42l-21-58-21 58Z" fill="#d4af37"/>
+  <rect width="512" height="512" rx="42" fill="#f5efe3"/>
+  <rect x="58" y="28" width="396" height="456" fill="none" stroke="#b08a4a" stroke-width="14"/>
+  <path d="M112 366 242 92 400 366h-70L244 202 177 366Z" fill="#b08a4a"/>
+  <path d="M112 154 244 420 400 154h-70L244 306 177 154Z" fill="#765522"/>
+  <text x="256" y="465" text-anchor="middle" font-family="Georgia,serif" font-size="34" letter-spacing="8" fill="#765522">AV</text>
 </svg>
