@@ -29,11 +29,7 @@ export default function Sidebar({ activeView = 'overview', onNavigate, visibleVi
     <aside className={`arcova-sidebar ${mobileOpen ? 'mobile-open' : ''}`} dir="rtl">
       <div className="arcova-top">
         <div className="arcova-brand">
-          <div className="arcova-brand-mark">A</div>
-          <div>
-            <div className="arcova-brand-name">ARCOVA</div>
-            <div className="arcova-brand-subtitle">REAL ESTATE CRM</div>
-          </div>
+          <img className="arcova-brand-logo" src="/arcova-logo.svg" alt="ARCOVA Real Estate" />
         </div>
         <button className="mobile-toggle" type="button" onClick={() => setMobileOpen((v) => !v)} aria-label="القائمة">
           {mobileOpen ? <X size={22}/> : <Menu size={22}/>}
@@ -78,20 +74,19 @@ export default function Sidebar({ activeView = 'overview', onNavigate, visibleVi
       </div>
 
       <style jsx>{`
-        .arcova-sidebar{isolation:isolate;width:250px;min-width:250px;height:100vh;position:sticky;top:0;display:flex;flex-direction:column;background:#020617;border-left:1px solid #1e293b;padding:16px;color:#fff;z-index:40;flex:0 0 250px}
+        .arcova-sidebar{isolation:isolate;width:250px;min-width:250px;height:100vh;position:sticky;top:0;display:flex;flex-direction:column;background:#f5efe3;border-left:1px solid #d9c5a4;padding:16px;color:#3f321f;z-index:40;flex:0 0 250px}
         .arcova-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-        .arcova-brand{margin-bottom:18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e293b;padding:8px 8px 18px;flex:1}
-        .arcova-brand-mark{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid rgba(251,191,36,.7);background:linear-gradient(135deg,#fcd34d,#d97706);font-size:1.2rem;font-weight:800;color:#020617;flex-shrink:0}
-        .arcova-brand-name{font-size:1rem;font-weight:800;letter-spacing:.18em;color:#fcd34d}.arcova-brand-subtitle{margin-top:2px;font-size:.6rem;font-weight:600;letter-spacing:.16em;color:#94a3b8}
-        .mobile-toggle{display:none;background:#111827;color:#fbbf24;border:1px solid #334155;border-radius:10px;width:44px;height:44px;align-items:center;justify-content:center}
-        .arcova-sidebar-content{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden}.arcova-menu-title{margin-bottom:10px;padding:0 12px;font-size:.67rem;font-weight:700;color:#64748b}
-        .arcova-nav{display:flex;flex-direction:column;gap:7px}.arcova-nav-link{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px;border-radius:11px;color:#cbd5e1;background:transparent;text-decoration:none;transition:.18s ease}
-        .arcova-nav-link:hover{background:#0f172a;color:#fff;transform:translateX(-2px)}.arcova-nav-link.active{background:linear-gradient(135deg,#fcd34d,#f59e0b);color:#020617;box-shadow:0 8px 22px rgba(245,158,11,.14)}
+        .arcova-brand{margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:1px solid #d9c5a4;padding:8px 4px 18px;flex:1;min-width:0}
+        .arcova-brand-logo{display:block;width:100%;max-width:220px;height:auto;object-fit:contain}
+        .mobile-toggle{display:none;background:#f5efe3;color:#765522;border:1px solid #b08a4a;border-radius:10px;width:44px;height:44px;align-items:center;justify-content:center}
+        .arcova-sidebar-content{min-height:0;flex:1;overflow-y:auto;overflow-x:hidden}.arcova-menu-title{margin-bottom:10px;padding:0 12px;font-size:.67rem;font-weight:700;color:#9a7b4b}
+        .arcova-nav{display:flex;flex-direction:column;gap:7px}.arcova-nav-link{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px;border-radius:11px;color:#765522;background:transparent;text-decoration:none;transition:.18s ease}
+        .arcova-nav-link:hover{background:#eadcc5;color:#3f321f;transform:translateX(-2px)}.arcova-nav-link.active{background:linear-gradient(135deg,#d6b77f,#b08a4a);color:#fff;box-shadow:0 8px 22px rgba(176,138,74,.18)}
         .arcova-nav-label{display:flex;align-items:center;gap:11px;min-width:0}.arcova-nav-label span{white-space:nowrap;font-size:.88rem}.arcova-nav-arrow{opacity:.45;flex-shrink:0}.arcova-nav-link.active .arcova-nav-arrow{opacity:.9}
-        .arcova-sidebar-footer{margin-top:12px;flex-shrink:0;border-radius:12px;border:1px solid #1e293b;background:rgba(15,23,42,.7);padding:12px;text-align:center}.arcova-footer-title{font-size:.68rem;font-weight:800;letter-spacing:.1em;color:#fcd34d}.arcova-footer-text{margin-top:4px;font-size:.65rem;color:#64748b}
+        .arcova-sidebar-footer{margin-top:12px;flex-shrink:0;border-radius:12px;border:1px solid #d9c5a4;background:#eee2cf;padding:12px;text-align:center}.arcova-footer-title{font-size:.68rem;font-weight:800;letter-spacing:.1em;color:#765522}.arcova-footer-text{margin-top:4px;font-size:.65rem;color:#9a7b4b}
         @media(max-width:768px){
-          .arcova-sidebar{position:relative;width:100%!important;min-width:0!important;height:auto;min-height:0;padding:10px 12px;flex:0 0 auto;border-left:0;border-bottom:1px solid #1e293b}
-          .arcova-top{width:100%}.arcova-brand{margin:0;border:0;padding:4px 0}.arcova-brand-mark{width:38px;height:38px}.mobile-toggle{display:flex}
+          .arcova-sidebar{position:relative;width:100%!important;min-width:0!important;height:auto;min-height:0;padding:10px 12px;flex:0 0 auto;border-left:0;border-bottom:1px solid #d9c5a4}
+          .arcova-top{width:100%}.arcova-brand{margin:0;border:0;padding:4px 0;justify-content:flex-start}.arcova-brand-logo{width:190px;max-width:calc(100% - 54px)}.mobile-toggle{display:flex}
           .arcova-sidebar-content,.arcova-sidebar-footer{display:none}.arcova-sidebar.mobile-open .arcova-sidebar-content{display:block;margin-top:10px;max-height:70vh;overflow-y:auto}.arcova-sidebar.mobile-open .arcova-sidebar-footer{display:block}
           .arcova-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}.arcova-nav-link{min-height:48px;padding:10px}.arcova-nav-label span{font-size:.78rem;overflow:hidden;text-overflow:ellipsis}.arcova-nav-arrow{display:none}
         }
