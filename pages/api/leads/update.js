@@ -79,6 +79,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid budget.' });
   }
 
+  const allowedStatuses = new Set(['New Lead', 'Contacted', 'Interested', 'Meeting Set', 'Closed Won', 'Lost', 'Archived']);
+  const allowedTemperatures = new Set(['Cold', 'Warm', 'Hot']);
+  const status = body.status == null || body.status === '' ? undefined : text(body.status, 40);
+  const temperature = body.temperature == null || body.temperature === '' ? undefined : text(body.temperature, 20);
+
+  if (status !== undefined && !allowedStatuses.has(status)) {
+    return res.status(400).json({ error: 'Invalid lead status.' });
+  }
+  if (temperature !== undefined && !allowedTemperatures.has(temperature)) {
+    return res.status(400).json({ error: 'Invalid lead temperature.' });
+  }
+
   const { data: existingLead, error: existingError } = await adminClient
     .from('leads')
     .select('id,assigned_to')
@@ -102,6 +114,8 @@ export default async function handler(req, res) {
     preferred_location: text(body.preferred_location, 200) || null,
     desired_unit_type: text(body.desired_unit_type, 150) || null,
     folder: text(body.folder, 150) || null,
+    ...(status !== undefined ? { status } : {}),
+    ...(temperature !== undefined ? { temperature } : {}),
   };
 
   const { data, error } = await adminClient
