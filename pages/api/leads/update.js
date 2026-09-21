@@ -23,8 +23,8 @@ function normalizeRole(value) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+  if (!['PATCH', 'POST'].includes(req.method)) {
+    res.setHeader('Allow', 'PATCH, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -121,5 +121,5 @@ export default async function handler(req, res) {
     details: { lead_id: id, role },
   }]);
 
-  return res.status(200).json({ success: true, data });
+  return res.status(200).json({ success: true, data, lead: data });
 }
