@@ -23,8 +23,8 @@ function normalizeRole(value) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+  if (!['PATCH', 'POST'].includes(req.method)) {
+    res.setHeader('Allow', 'PATCH, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -79,6 +79,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid budget.' });
   }
 
+  const allowedStatuses = new Set(['New Lead', 'Contacted', 'Interested', 'Meeting Set', 'Closed Won', 'Lost', 'Archived']);
+  const allowedTemperatures = new Set(['Cold', 'Warm', 'Hot']);
+  const status = body.status == null || body.status === '' ? undefined : text(body.status, 40);
+  const temperature = body.temperature == null || body.temperature === '' ? undefined : text(body.temperature, 20);
+
+  if (status !== undefined && !allowedStatuses.has(status)) {
+    return res.status(400).json({ error: 'Invalid lead status.' });
+  }
+  if (temperature !== undefined && !allowedTemperatures.has(temperature)) {
+    return res.status(400).json({ error: 'Invalid lead temperature.' });
+  }
+
   const { data: existingLead, error: existingError } = await adminClient
     .from('leads')
     .select('id,assigned_to')
@@ -88,8 +100,33 @@ export default async function handler(req, res) {
   if (!existingLead) return res.status(404).json({ error: 'Lead not found.' });
 
   const elevated = ['admin', 'ceo', 'manager'].includes(role);
-  if (!elevated && existingLead.assigned_to !== userId) {
-    return res.status(403).json({ error: 'You can edit only leads assigned to you.' });
+  let canEdit = elevated || existingLead.assigned_to === userId;
+
+  if (!canEdit && role === 'team_leader' && existingLead.assigned_to) {
+    const { data: targetProfile, error: targetProfileError } = await adminClient
+      .from('profiles')
+      .select('id,team_leader_id,team_id')
+      .eq('id', existingLead.assigned_to)
+      .maybeSingle();
+
+    if (targetProfileError) return res.status(500).json({ error: 'Unable to verify team access.' });
+
+    if (targetProfile?.team_leader_id === userId) {
+      canEdit = true;
+    } else if (targetProfile?.team_id) {
+      const { data: callerProfile, error: callerProfileError } = await adminClient
+        .from('profiles')
+        .select('team_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (callerProfileError) return res.status(500).json({ error: 'Unable to verify team access.' });
+      canEdit = Boolean(callerProfile?.team_id && callerProfile.team_id === targetProfile.team_id);
+    }
+  }
+
+  if (!canEdit) {
+    return res.status(403).json({ error: 'You can edit only leads within your permitted scope.' });
   }
 
   const updates = {
@@ -102,6 +139,8 @@ export default async function handler(req, res) {
     preferred_location: text(body.preferred_location, 200) || null,
     desired_unit_type: text(body.desired_unit_type, 150) || null,
     folder: text(body.folder, 150) || null,
+    ...(status !== undefined ? { status } : {}),
+    ...(temperature !== undefined ? { temperature } : {}),
   };
 
   const { data, error } = await adminClient
@@ -121,5 +160,5 @@ export default async function handler(req, res) {
     details: { lead_id: id, role },
   }]);
 
-  return res.status(200).json({ success: true, data });
+  return res.status(200).json({ success: true, data, lead: data });
 }
