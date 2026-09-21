@@ -1,0 +1,11 @@
+-- ARCOVA CRM: campaign lifecycle status
+-- Applied to the connected Supabase project.
+
+alter table public.campaigns
+  add column if not exists status text not null default 'Active';
+
+create index if not exists campaigns_created_at_idx
+  on public.campaigns (created_at desc);
+
+create index if not exists campaigns_status_idx
+  on public.campaigns (status);
