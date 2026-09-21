@@ -263,25 +263,41 @@ export default function Dashboard() {
         return;
       }
 
-      const { error } = await supabase.from('leads').insert([{
-        name: newLeadData.name,
-        phone: newLeadData.phone,
-        email: newLeadData.email || '',
-        lead_source: newLeadData.lead_source,
-        status: 'New Lead',
-        assigned_to: assignedTarget,
-        budget: newLeadData.budget ? parseFloat(newLeadData.budget) : null,
-        preferred_area: newLeadData.preferred_area,
-        desired_unit_type: newLeadData.desired_unit_type,
-        folder: newLeadData.folder || null
-      }]);
-
-      if (error) alert('خطأ في الإضافة: ' + error.message);
-      else {
-        setShowAddLeadModal(false);
-        setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '', budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: '' });
-        fetchData();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
+        return;
       }
+
+      const response = await fetch('/api/leads/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({
+          name: newLeadData.name,
+          phone: newLeadData.phone,
+          email: newLeadData.email || null,
+          lead_source: newLeadData.lead_source,
+          status: 'New Lead',
+          assigned_to: assignedTarget,
+          budget: newLeadData.budget ? parseFloat(newLeadData.budget) : null,
+          preferred_area: newLeadData.preferred_area,
+          desired_unit_type: newLeadData.desired_unit_type,
+          folder: newLeadData.folder || null
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert('خطأ في الإضافة: ' + (result.error || 'تعذر إضافة العميل.'));
+        return;
+      }
+
+      setShowAddLeadModal(false);
+      setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '', budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: '' });
+      fetchData();
     } catch (err) { alert('تعذر الاتصال بالخادم.'); }
   };
 
