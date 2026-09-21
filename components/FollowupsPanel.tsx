@@ -59,7 +59,7 @@ export default function FollowupsPanel({ currentUser, userRole, leads = [] }) {
         {followups.map((f)=><div key={f.id} style={{ background:'#3f321f', border:'1px solid #d9c5a4', borderRadius:'7px', padding:'0.8rem' }}>
           <div style={{ display:'flex', justifyContent:'space-between', gap:'0.5rem', flexWrap:'wrap' }}><strong>{f.leads?.name || '—'}</strong><span style={{ color:'#b08a4a', fontSize:'0.75rem' }}>{new Date(f.followup_date).toLocaleString('ar-EG')}</span></div>
           <div style={{ color:'#806f56', fontSize:'0.75rem', marginTop:'0.3rem' }}>{f.type} · {f.notes || 'بدون ملاحظات'}</div>
-          <select value={f.status || 'Pending'} onChange={(e)=>updateStatus(f.id,e.target.value)} style={{ marginTop:'0.5rem', padding:'0.35rem', background:'#fffaf0', color:'#b08a4a', border:'1px solid #d9c5a4', borderRadius:'4px' }}>{statusOptions.map((s)=><option key={s}>{s}</option>)}</select>
+          {can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE) ? <select value={f.status || 'Pending'} onChange={(e)=>updateStatus(f.id,e.target.value)} style={{ marginTop:'0.5rem', padding:'0.35rem', background:'#fffaf0', color:'#b08a4a', border:'1px solid #d9c5a4', borderRadius:'4px' }}>{statusOptions.map((s)=><option key={s}>{s}</option>)}</select> : <div style={{ marginTop:'0.5rem', color:'#806f56', fontSize:'0.75rem' }}>الحالة: {f.status || 'Pending'}</div>}
         </div>)}
         {!followups.length && <div style={{ color:'#9a7b4b', background:'#3f321f', padding:'1rem', borderRadius:'8px' }}>لا توجد متابعات مسجلة.</div>}
       </div>
