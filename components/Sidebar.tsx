@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, Users, CalendarClock, Building2, ListTodo, Megaphone,
   Trophy, ShieldCheck, UserCog, GitBranch, Briefcase, BarChart3,
-  ChevronLeft, FolderKanban, Menu, X
+  ChevronLeft, FolderKanban, UserPlus, Menu, X
 } from 'lucide-react';
 
 const navItems = [
   { name: 'الرئيسية', view: 'overview', icon: LayoutDashboard },
   { name: 'العملاء / Customer 360', view: 'leads', icon: Users },
   { name: 'مجلدات العملاء', view: 'folders', route: '/folders', icon: FolderKanban },
+  { name: 'إضافة موظف', view: 'new-employee', route: '/employees/new', icon: UserPlus },
   { name: 'Pipeline', view: 'pipeline', icon: GitBranch },
   { name: 'المتابعات', view: 'reminders', icon: CalendarClock },
   { name: 'المشاريع والوحدات', view: 'projects', icon: Building2 },
