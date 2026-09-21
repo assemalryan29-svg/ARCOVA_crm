@@ -20,7 +20,10 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
   const [busy, setBusy] = useState(false);
   const canFinanceView = can(userRole, PERMISSIONS.FINANCE_VIEW);
   const canFinanceManage = can(userRole, PERMISSIONS.FINANCE_MANAGE);
-  const canOperate = can(userRole, PERMISSIONS.DEALS_MANAGE) || can(userRole, PERMISSIONS.RESERVATIONS_MANAGE) || can(userRole, PERMISSIONS.CALLS_MANAGE) || can(userRole, PERMISSIONS.APPOINTMENTS_MANAGE);
+  const canDeals = can(userRole, PERMISSIONS.DEALS_MANAGE);
+  const canReservations = can(userRole, PERMISSIONS.RESERVATIONS_MANAGE);
+  const canCalls = can(userRole, PERMISSIONS.CALLS_MANAGE);
+  const canAppointments = can(userRole, PERMISSIONS.APPOINTMENTS_MANAGE);
 
   const load = async () => {
     const results = await Promise.all([
@@ -59,7 +62,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       </div>
 
       {active === 'deals' && <div style={{ display: 'grid', gap: '0.7rem' }}>
-        {canOperate && <form onSubmit={(e) => { const f=new FormData(e.currentTarget); return submit(e,'deals',{lead_id:f.get('lead_id'),unit_id:f.get('unit_id')||null,sales_person:currentUser.id,deal_value:Number(f.get('deal_value')||0),down_payment:Number(f.get('down_payment')||0),installment_months:f.get('installment_months')?Number(f.get('installment_months')):null,payment_frequency:f.get('payment_frequency'),status:f.get('status'),notes:f.get('notes')||null},'فشل إنشاء الصفقة'); }} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
+        {canDeals && <form onSubmit={(e) => { const f=new FormData(e.currentTarget); return submit(e,'deals',{lead_id:f.get('lead_id'),unit_id:f.get('unit_id')||null,sales_person:currentUser.id,deal_value:Number(f.get('deal_value')||0),down_payment:Number(f.get('down_payment')||0),installment_months:f.get('installment_months')?Number(f.get('installment_months')):null,payment_frequency:f.get('payment_frequency'),status:f.get('status'),notes:f.get('notes')||null},'فشل إنشاء الصفقة'); }} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
           <select name='lead_id' required style={selectStyle}><option value=''>العميل</option>{leads.map((l)=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
           <select name='unit_id' style={selectStyle}><option value=''>الوحدة</option>{units.map((u)=><option key={u.id} value={u.id}>{u.unit_number || u.title}</option>)}</select>
           <Input name='deal_value' placeholder='قيمة الصفقة' type='number' required />
@@ -74,7 +77,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       </div>}
 
       {active === 'reservations' && <div style={{ display:'grid',gap:'0.7rem' }}>
-        {canOperate && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'reservations',{lead_id:f.get('lead_id'),unit_id:f.get('unit_id'),sales_person:currentUser.id,reservation_amount:Number(f.get('reservation_amount')||0),contract_value:Number(f.get('contract_value')||0),status:'Pending',notes:f.get('notes')||null},'فشل تسجيل الحجز');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
+        {canReservations && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'reservations',{lead_id:f.get('lead_id'),unit_id:f.get('unit_id'),sales_person:currentUser.id,reservation_amount:Number(f.get('reservation_amount')||0),contract_value:Number(f.get('contract_value')||0),status:'Pending',notes:f.get('notes')||null},'فشل تسجيل الحجز');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
           <select name='lead_id' required style={selectStyle}><option value=''>العميل</option>{leads.map((l)=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
           <select name='unit_id' required style={selectStyle}><option value=''>الوحدة</option>{units.map((u)=><option key={u.id} value={u.id}>{u.unit_number || u.title}</option>)}</select>
           <Input name='reservation_amount' placeholder='مبلغ الحجز' type='number' required />
@@ -86,7 +89,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       </div>}
 
       {active === 'calls' && <div style={{ display:'grid',gap:'0.7rem' }}>
-        {canOperate && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'calls',{lead_id:f.get('lead_id'),assigned_to:currentUser.id,call_at:f.get('call_at')?new Date(f.get('call_at')).toISOString():new Date().toISOString(),duration_seconds:Number(f.get('duration_seconds')||0),outcome:f.get('outcome')||null,notes:f.get('notes')||null},'فشل تسجيل المكالمة');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
+        {canCalls && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'calls',{lead_id:f.get('lead_id'),assigned_to:currentUser.id,call_at:f.get('call_at')?new Date(f.get('call_at')).toISOString():new Date().toISOString(),duration_seconds:Number(f.get('duration_seconds')||0),outcome:f.get('outcome')||null,notes:f.get('notes')||null},'فشل تسجيل المكالمة');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
           <select name='lead_id' required style={selectStyle}><option value=''>العميل</option>{leads.map((l)=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
           <Input name='call_at' type='datetime-local' placeholder='' />
           <Input name='duration_seconds' placeholder='المدة بالثواني' type='number' />
@@ -98,7 +101,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       </div>}
 
       {active === 'appointments' && <div style={{ display:'grid',gap:'0.7rem' }}>
-        {canOperate && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'appointments',{lead_id:f.get('lead_id'),assigned_to:currentUser.id,scheduled_at:new Date(f.get('scheduled_at')).toISOString(),type:f.get('type')||'Meeting',status:'Planned',notes:f.get('notes')||null},'فشل إنشاء الموعد');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
+        {canAppointments && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'appointments',{lead_id:f.get('lead_id'),assigned_to:currentUser.id,scheduled_at:new Date(f.get('scheduled_at')).toISOString(),type:f.get('type')||'Meeting',status:'Planned',notes:f.get('notes')||null},'فشل إنشاء الموعد');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
           <select name='lead_id' required style={selectStyle}><option value=''>العميل</option>{leads.map((l)=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
           <Input name='scheduled_at' type='datetime-local' placeholder='' required />
           <Input name='type' placeholder='نوع الموعد' />
