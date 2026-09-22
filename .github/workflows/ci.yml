@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      NEXT_PUBLIC_SUPABASE_URL: https://ilcdruyuhivhhsrkqjje.supabase.co
+      NEXT_PUBLIC_SUPABASE_URL: https://ilcdruyuhivhsrkqjje.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
     steps:
