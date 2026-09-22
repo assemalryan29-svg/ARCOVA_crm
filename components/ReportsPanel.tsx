@@ -21,7 +21,7 @@ export default function ReportsPanel({ leads = [], tasks = [], userRole = 'sales
 
   const wonValue = useMemo(() => deals.filter((d) => d.status === 'Won').reduce((a,d) => a + Number(d.deal_value || 0), 0), [deals]);
   const reservedValue = useMemo(() => reservations.filter((r) => r.status !== 'Cancelled').reduce((a,r) => a + Number(r.reservation_amount || 0), 0), [reservations]);
-  const pendingPayments = useMemo(() => payments.filter((p) => p.status !== 'Paid').reduce((a,p) => a + Number(p.amount || 0), 0), [payments]);
+  const pendingPayments = useMemo(() => payments.filter((p) => p.status === 'Pending' || p.status === 'Overdue').reduce((a,p) => a + Number(p.amount || 0), 0), [payments]);
   const statusCount = useMemo(() => leads.reduce((m,l) => { const k=l.status || 'Unknown'; m[k]=(m[k]||0)+1; return m; }, {}), [leads]);
   const sourceCount = useMemo(() => leads.reduce((m,l) => { const k=l.lead_source || 'Unknown'; m[k]=(m[k]||0)+1; return m; }, {}), [leads]);
 
