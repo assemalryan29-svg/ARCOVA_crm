@@ -528,7 +528,9 @@ export default function Dashboard() {
           preferred_area: selectedLead.preferred_area,
           preferred_location: selectedLead.preferred_location,
           desired_unit_type: selectedLead.desired_unit_type,
-          folder: selectedLead.folder
+          folder: selectedLead.folder,
+          status: selectedLead.status,
+          temperature: selectedLead.temperature
         })
       });
 
@@ -1240,20 +1242,35 @@ export default function Dashboard() {
                 )}
               </div>
             
-            <form onSubmit={handleSaveLeadExtendedDetails} style={{ backgroundColor: '#f5efe3', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #d9c5a4', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ fontSize: '0.8rem', color: '#b08a4a', fontWeight: 'bold' }}>بيانات الاهتمام العقاري:</div>
+            <form onSubmit={handleSaveLeadExtendedDetails} style={{ backgroundColor: '#f5efe3', padding: '0.8rem', borderRadius: '6px', margin: '0.8rem 0', border: '1px solid #d9c5a4', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ fontSize: '0.8rem', color: '#b08a4a', fontWeight: 'bold' }}>بيانات العميل:</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <input type="number" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="الميزانية" value={selectedLead.budget || ''} onChange={(e) => setSelectedLead({...selectedLead, budget: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#fffaf0', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }} />
-                <input type="text" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="المنطقة المفضلة" value={selectedLead.preferred_area || ''} onChange={(e) => setSelectedLead({...selectedLead, preferred_area: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#fffaf0', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }} />
+                <input type="text" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="اسم العميل" value={selectedLead.name || ''} onChange={(e) => setSelectedLead({...selectedLead, name: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }} />
+                <input type="text" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="رقم الهاتف" value={selectedLead.phone || ''} onChange={(e) => setSelectedLead({...selectedLead, phone: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }} />
               </div>
-              <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.desired_unit_type || 'شقة'} onChange={(e) => setSelectedLead({...selectedLead, desired_unit_type: e.target.value})} style={{ padding: '0.4rem', backgroundColor: '#fffaf0', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <input type="email" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="البريد الإلكتروني" value={selectedLead.email || ''} onChange={(e) => setSelectedLead({...selectedLead, email: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }} />
+                <input type="text" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="مصدر العميل" value={selectedLead.lead_source || ''} onChange={(e) => setSelectedLead({...selectedLead, lead_source: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <input type="number" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="الميزانية" value={selectedLead.budget ?? ''} onChange={(e) => setSelectedLead({...selectedLead, budget: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }} />
+                <input type="text" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="المنطقة المفضلة" value={selectedLead.preferred_area || ''} onChange={(e) => setSelectedLead({...selectedLead, preferred_area: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <input type="text" disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} placeholder="الموقع المطلوب" value={selectedLead.preferred_location || ''} onChange={(e) => setSelectedLead({...selectedLead, preferred_location: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }} />
+                <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.folder || ''} onChange={(e) => setSelectedLead({...selectedLead, folder: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', boxSizing: 'border-box', minWidth: 0 }}>
+                  <option value="">بدون مجلد</option>
+                  {folders.map((folder, i) => <option key={i} value={folder}>{folder}</option>)}
+                </select>
+              </div>
+              <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.desired_unit_type || 'شقة'} onChange={(e) => setSelectedLead({...selectedLead, desired_unit_type: e.target.value})} style={{ padding: '0.45rem', backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', minWidth: 0 }}>
                 <option value="شقة">شقة</option>
                 <option value="فيلا">فيلا</option>
                 <option value="تاون هاوس">تاون هاوس</option>
                 <option value="تجاري / إداري">تجاري / إداري</option>
               </select>
               {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
-                <button type="submit" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#34d399', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem', alignSelf: 'flex-start' }}>حفظ التعديلات</button>
+                <button type="submit" style={{ padding: '0.35rem 0.7rem', backgroundColor: '#34d399', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem', alignSelf: 'flex-start' }}>حفظ بيانات العميل</button>
               )}
             </form>
 
