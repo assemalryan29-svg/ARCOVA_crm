@@ -97,6 +97,7 @@ export default async function handler(req, res) {
   if (!auth.allowed) return res.status(auth.status).json({ error: auth.error });
 
   if (req.method === 'DELETE') {
+    if (auth.role !== 'admin') return res.status(403).json({ error: 'Permanent deletion is restricted to Admin.' });
     let query = supabase.from(table).delete().eq('id', id);
     if (leadId && ['calls', 'followups', 'appointments', 'reservations', 'deals'].includes(table)) {
       query = query.eq('lead_id', leadId);
