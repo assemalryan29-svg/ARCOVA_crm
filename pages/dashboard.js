@@ -356,6 +356,7 @@ export default function Dashboard() {
   };
 
   const handleMoveLeadToFolder = async (leadId, folderName) => {
+    if (!can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
     const { error } = await supabase.from('leads').update({ folder: folderName || null }).eq('id', leadId);
     if (!error) {
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, folder: folderName } : l));
@@ -1039,7 +1040,7 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة المهام والأنشطة</h3>
-              <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مهمة جديدة</button>
+              {can(userRole, PERMISSIONS.TASKS_MANAGE) && <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مهمة جديدة</button>
             </div>
             <div style={{ backgroundColor: '#fffaf0', borderRadius: '6px', overflowX: 'auto', border: '1px solid #d9c5a4' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
@@ -1060,7 +1061,7 @@ export default function Dashboard() {
                       <td style={{ padding: '0.8rem', color: '#f87171' }}>{task.due_date ? new Date(task.due_date).toLocaleString('ar-EG') : 'غير محدد'}</td>
                       <td style={{ padding: '0.8rem', color: '#806f56' }}>{task.description || '-'}</td>
                       <td style={{ padding: '0.8rem' }}>
-                        <select value={task.status || 'Pending'} onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: task.status === 'Completed' ? '#34d399' : '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        <select disabled={!can(userRole, PERMISSIONS.TASKS_MANAGE)} value={task.status || 'Pending'} onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: task.status === 'Completed' ? '#34d399' : '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
                           <option value="Pending">⏳ قيد التنفيذ</option>
                           <option value="Completed">✅ مكتملة</option>
                         </select>
@@ -1077,10 +1078,10 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>المشاريع والوحدات</h3>
-              {canManageTeam(userRole) && (
+              {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button onClick={() => setShowProjectModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d9c5a4', color: '#b08a4a', border: '1px solid #b08a4a', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مشروع</button>
-                  <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة وحدة</button>
+                  {can(userRole, PERMISSIONS.UNITS_MANAGE) && <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة وحدة</button>
                 </div>
               )}
             </div>
@@ -1121,7 +1122,7 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة الحملات التسويقية</h3>
-              {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
+              {can(userRole, PERMISSIONS.CAMPAIGNS_MANAGE) && (
                 <button onClick={() => setShowCampaignModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة حملة</button>
               )}
             </div>
