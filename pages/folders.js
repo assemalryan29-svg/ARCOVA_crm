@@ -48,7 +48,7 @@ export default function FoldersPage() {
     return leads.filter((lead) => {
       const matchesFolder = selected === '__none__' ? !lead.folder : selected ? lead.folder === selected : true;
       const matchesSearch = !query || (lead.name || '').toLowerCase().includes(query) || (lead.phone || '').includes(search.trim());
-      return matchesFolder && matchesSearch;
+      return lead.status !== 'Archived' && matchesFolder && matchesSearch;
     });
   }, [leads, selected, search]);
 

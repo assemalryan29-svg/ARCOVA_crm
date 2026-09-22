@@ -645,7 +645,7 @@ export default function Dashboard() {
   const handleExportToExcel = () => {
     if (leads.length === 0) return;
     const headers = ['Name', 'Phone', 'Email', 'Source', 'Status', 'Budget', 'Area', 'Folder', 'Next Follow Up'];
-    const rows = leads.map(l => [`"${l.name || ''}"`, `"${l.phone || ''}"`, `"${l.email || ''}"`, `"${l.lead_source || ''}"`, `"${l.status || ''}"`, `"${l.budget || ''}"`, `"${l.preferred_area || ''}"`, `"${l.folder || ''}"`, `"${l.next_follow_up || ''}"`]);
+    const rows = leads.filter(l => l.status !== 'Archived').map(l => [`"${l.name || ''}"`, `"${l.phone || ''}"`, `"${l.email || ''}"`, `"${l.lead_source || ''}"`, `"${l.status || ''}"`, `"${l.budget || ''}"`, `"${l.preferred_area || ''}"`, `"${l.folder || ''}"`, `"${l.next_follow_up || ''}"`]);
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
