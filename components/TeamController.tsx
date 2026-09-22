@@ -172,8 +172,8 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
         .notice { padding: 11px 12px; border-radius: 10px; margin: 10px 0; line-height: 1.7; font-size: 13px; }
         .error { background: #fff0ed; border: 1px solid #e5b4aa; color: #9f2d20; }
         .success { background: #edf8ed; border: 1px solid #b5d8b8; color: #276738; }
-        .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e4d5bd; border-radius: 10px; }
-        table { width: 100%; min-width: 850px; border-collapse: collapse; font-size: 13px; }
+        .table-wrap { width: 100%; overflow-x: auto !important; -webkit-overflow-scrolling: touch; border: 1px solid #e4d5bd; border-radius: 10px; }
+        table { width: 100%; min-width: 850px !important; border-collapse: collapse; font-size: 13px; }
         th, td { padding: 10px 8px; text-align: right; vertical-align: middle; border-bottom: 1px solid #e4d5bd; }
         th { color: #806f56; background: #f1e5d1; white-space: nowrap; }
         tr:last-child td { border-bottom: 0; }
@@ -221,7 +221,7 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
                 return (
                   <tr key={profile.id}>
                     <td>
-                      <div className="employee-name">{profile.full_name || 'بدون اسم'}</div>
+                      <div className="employee-name">{profile.full_name || (profile.email ? profile.email.split('@')[0] : 'بدون اسم')}</div>
                       <div className="employee-email">{profile.email}</div>
                     </td>
                     <td>
