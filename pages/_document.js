@@ -31,7 +31,8 @@ export default function Document() {
             .arcova-dashboard-content > header { padding: 12px !important; gap: 10px !important; flex-wrap: wrap !important; }
             .arcova-dashboard-content > header > div { max-width: 100%; min-width: 0; flex-wrap: wrap; }
             .arcova-dashboard-content main { padding: 12px !important; width: 100% !important; min-width: 0 !important; max-width: 100vw !important; overflow-x: hidden !important; }
-            .arcova-dashboard-content main table { width: 100%; max-width: 100%; min-width: 0 !important; table-layout: auto; }
+            .arcova-dashboard-content main table { width: 100%; max-width: none; min-width: 760px !important; table-layout: auto; }
+            .arcova-dashboard-content main .table-wrap { width: 100%; max-width: 100%; overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
             .arcova-dashboard-content main > div { max-width: 100%; min-width: 0; }
             .arcova-dashboard-content input, .arcova-dashboard-content select, .arcova-dashboard-content textarea { min-width: 0 !important; width: 100%; }
           }
