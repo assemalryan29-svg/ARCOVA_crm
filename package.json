@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "test:authz": "node scripts/verify-permission-matrix.mjs",
-    "test:crud-guardrails": "node scripts/verify-crud-guardrails.mjs"
+    "test:crud-guardrails": "node scripts/verify-crud-guardrails.mjs",
+    "test:architecture": "node scripts/verify-architecture.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

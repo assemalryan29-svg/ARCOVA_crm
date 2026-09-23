@@ -10,6 +10,35 @@ import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageIn
 import { getCurrentIdentity } from '../lib/auth';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
 
+async function crmMutation(method, table, data, id = null) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) return { data: null, error: new Error('انتهت الجلسة. سجل الدخول مرة أخرى.') };
+  try {
+    const response = await fetch('/api/crm/mutate', {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ table, data, id })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return { data: null, error: new Error(result.error || 'فشلت العملية.') };
+    return { data: result.data || null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+async function crmCancelPendingFollowups(leadId) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) return;
+  const response = await fetch('/api/crm/followups/cancel-pending?lead_id=' + encodeURIComponent(leadId), {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!response.ok) console.error('Failed to cancel pending followups');
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -304,28 +333,28 @@ export default function Dashboard() {
   const handleCreateProject = async (e) => {
     e.preventDefault();
     if (!newProjectData.name) return;
-    const { error } = await supabase.from('projects').insert([newProjectData]);
+    const { error } = await crmMutation('POST', 'projects', newProjectData);
     if (!error) { setShowProjectModal(false); setNewProjectData({ name: '', location: '', description: '' }); fetchData(); alert('تم إضافة المشروع'); }
   };
 
   const handleCreateUnit = async (e) => {
     e.preventDefault();
     if (!newUnitData.project_id || !newUnitData.unit_number) return;
-    const { error } = await supabase.from('units').insert([newUnitData]);
+    const { error } = await crmMutation('POST', 'units', newUnitData);
     if (!error) { setShowUnitModal(false); setNewUnitData({ project_id: '', unit_number: '', type: 'شقة', area: '', price: '', status: 'Available' }); fetchData(); alert('تم إضافة الوحدة'); }
   };
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskData.title) return;
-    const { error } = await supabase.from('tasks').insert([{ ...newTaskData, status: 'Pending', user_id: currentUser.id, created_by: currentUser.id }]);
+    const { error } = await crmMutation('POST', 'tasks', { ...newTaskData, status: 'Pending', user_id: currentUser.id, created_by: currentUser.id });
     if (!error) { setShowTaskModal(false); setNewTaskData({ title: '', lead_id: '', due_date: '', description: '' }); fetchData(); }
   };
 
   const handleCreateCampaign = async (e) => {
     e.preventDefault();
     if (!newCampaignData.name) return;
-    const { error } = await supabase.from('campaigns').insert([newCampaignData]);
+    const { error } = await crmMutation('POST', 'campaigns', newCampaignData);
     if (!error) { setShowCampaignModal(false); setNewCampaignData({ name: '', platform: '', budget: '', status: 'Active' }); fetchData(); alert('تم إضافة الحملة'); }
   };
 
@@ -339,11 +368,7 @@ export default function Dashboard() {
       return;
     }
 
-    const { error } = await supabase.from('lead_folders').insert([{
-      name,
-      created_by: currentUser.id,
-      active: true
-    }]);
+    const { error } = await crmMutation('POST', 'lead_folders', { name, created_by: currentUser.id, active: true });
 
     if (error) {
       alert('فشل إنشاء المجلد: ' + error.message);
@@ -356,7 +381,7 @@ export default function Dashboard() {
   };
 
   const handleMoveLeadToFolder = async (leadId, folderName) => {
-    const { error } = await supabase.from('leads').update({ folder: folderName || null }).eq('id', leadId);
+    const { error } = await crmMutation('PATCH', 'leads', { folder: folderName || null }, leadId);
     if (!error) {
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, folder: folderName } : l));
       if (selectedLead?.id === leadId) setSelectedLead(prev => ({ ...prev, folder: folderName }));
@@ -364,12 +389,12 @@ export default function Dashboard() {
   };
 
   const handleUpdateUnitStatus = async (unitId, newStatus) => {
-    const { error } = await supabase.from('units').update({ status: newStatus }).eq('id', unitId);
+    const { error } = await crmMutation('PATCH', 'units', { status: newStatus }, unitId);
     if (!error) fetchData();
   };
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
-    const { error } = await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+    const { error } = await crmMutation('PATCH', 'tasks', { status: newStatus }, taskId);
     if (!error) fetchData();
   };
 
@@ -500,10 +525,10 @@ export default function Dashboard() {
 
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
     if (!can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
-    const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
+    const { error } = await crmMutation('PATCH', 'leads', { status: newStatus }, leadId);
     if (!error) {
       setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
-      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Status Change', content: `تغيير حالة العميل: ${newStatus}` }]);
+      await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Status Change', content: `تغيير حالة العميل: ${newStatus}` });
       if (selectedLead?.id === leadId) { setSelectedLead(prev => ({ ...prev, status: newStatus })); fetchLeadLogs(leadId); }
     }
   };
@@ -569,22 +594,13 @@ export default function Dashboard() {
     }
 
     if (dateValue) {
-      await supabase.from('followups').insert([{
-        lead_id: leadId,
-        assigned_to: currentUser.id,
-        followup_date: new Date(dateValue).toISOString(),
-        type: 'Call',
-        status: 'Pending'
-      }]);
+      await crmMutation('POST', 'followups', { lead_id: leadId, assigned_to: currentUser.id, followup_date: new Date(dateValue).toISOString(), type: 'Call', status: 'Pending' });
     } else {
-      await supabase.from('followups')
-        .update({ status: 'Cancelled' })
-        .eq('lead_id', leadId)
-        .eq('status', 'Pending');
+      await crmCancelPendingFollowups(leadId);
     }
 
     setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
-    await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Follow-up Set', content: `تم جدولة متابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}` }]);
+    await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Follow-up Set', content: `تم جدولة متابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}` });
     if (selectedLead?.id === leadId) {
       setSelectedLead(prev => ({ ...prev, next_follow_up: dateValue }));
       fetchLeadLogs(leadId);
@@ -596,17 +612,17 @@ export default function Dashboard() {
   const handleAddLogNote = async (e) => {
     e.preventDefault();
     if (!newNote.trim() || !selectedLead) return;
-    const { error } = await supabase.from('lead_logs').insert([{ lead_id: selectedLead.id, user_email: currentUser.email, action_type: 'Feedback/Note', content: newNote }]);
+    const { error } = await crmMutation('POST', 'lead_logs', { lead_id: selectedLead.id, user_email: currentUser.email, action_type: 'Feedback/Note', content: newNote });
     if (!error) { setNewNote(''); fetchLeadLogs(selectedLead.id); }
   };
 
   const handleAssignLead = async (leadId, assigneeId) => {
     if (!canManageTeam(userRole)) return;
     const target = teamMembers.find(m => m.id === assigneeId);
-    const { error } = await supabase.from('leads').update({ assigned_to: assigneeId || null }).eq('id', leadId);
+    const { error } = await crmMutation('PATCH', 'leads', { assigned_to: assigneeId || null }, leadId);
     if (!error) {
       setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, assigned_to: assigneeId } : l));
-      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Assign', content: `إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}` }]);
+      await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Assign', content: `إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}` });
       if (selectedLead) fetchLeadLogs(leadId);
     }
   };
@@ -673,7 +689,7 @@ export default function Dashboard() {
 
     const planDetails = `خطة دفع مقترحة: السعر: ${price.toLocaleString()} | المقدم: ${down.toLocaleString()} | الاستلام: ${delivery.toLocaleString()} | القسط (${calcData.installmentType}): ${installValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} لمدة ${calcData.years} سنوات.`;
 
-    const { error } = await supabase.from('lead_logs').insert([{ lead_id: selectedLead.id, user_email: currentUser.email, action_type: 'Financial Plan', content: planDetails }]);
+    const { error } = await crmMutation('POST', 'lead_logs', { lead_id: selectedLead.id, user_email: currentUser.email, action_type: 'Financial Plan', content: planDetails });
     if (!error) { alert('تم حفظ الخطة المالية في ملف العميل'); fetchLeadLogs(selectedLead.id); }
   };
 

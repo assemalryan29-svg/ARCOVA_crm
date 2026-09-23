@@ -40,7 +40,7 @@ export default async function handler(req, res) {
   const { data: roleRow, error: roleError } = await serviceClient
     .from('user_roles')
     .select('role,active')
-    .eq('user_id', userId)
+    .eq('id', userId)
     .maybeSingle();
 
   if (roleError || !roleRow?.active || !roleRow?.role) {
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
       rejected.push({ index, reason: 'Name and phone are required.' });
       continue;
     }
-    if (phone && seenPhones.has(phone)) {
+    if (seenPhones.has(phone)) {
       rejected.push({ index, reason: 'Duplicate phone inside import.' });
       continue;
     }

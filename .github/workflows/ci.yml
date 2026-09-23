@@ -31,6 +31,6 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Authorization regression checks
-        run: npm run test:authz && npm run test:crud-guardrails
+        run: npm run test:authz && npm run test:crud-guardrails && npm run test:architecture
       - name: Production build
         run: npm run build
