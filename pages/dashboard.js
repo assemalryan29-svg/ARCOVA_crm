@@ -6,6 +6,7 @@ import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import FollowupsPanel from '../components/FollowupsPanel';
+import DuplicateLeadsPanel from '../components/DuplicateLeadsPanel';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
 import { getLeadStatusOptions } from '../lib/leadStatuses';
@@ -44,7 +45,8 @@ export default function Dashboard() {
     operations: 'operations',
     reports: 'reports',
     audit: 'audit',
-    team: 'team'
+    team: 'team',
+    duplicates: 'duplicates'
   };
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -784,6 +786,7 @@ export default function Dashboard() {
     ['audit', PERMISSIONS.AUDIT_VIEW],
     ['team', PERMISSIONS.TEAMS_VIEW]
   ].filter(([, permission]) => can(userRole, permission)).map(([view]) => view);
+  if (userRole === 'admin') visibleViews.push('duplicates');
 
   if (loading) return <div style={{ color: '#b08a4a', textAlign: 'center', padding: '5rem', backgroundColor: '#f5efe3', minHeight: '100vh' }}>جاري التحميل...</div>;
 
@@ -894,7 +897,11 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'pipeline' && can(userRole, PERMISSIONS.PIPELINE_VIEW) && (
-          <PipelineBoard leads={filteredLeads} statusOptions={statusOptions} onStatusChange={handleUpdateLeadStatus} onOpenLead={handleOpenLeadDetails} />
+          <PipelineBoard leads={filteredLeads} statusOptions={statusOptionsFor('')} onStatusChange={handleUpdateLeadStatus} onOpenLead={handleOpenLeadDetails} />
+        )}
+
+        {activeTab === 'duplicates' && userRole === 'admin' && (
+          <DuplicateLeadsPanel />
         )}
 
         {activeTab === 'operations' && can(userRole, PERMISSIONS.DEALS_VIEW) && (
