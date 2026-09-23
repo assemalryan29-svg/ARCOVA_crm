@@ -49,9 +49,9 @@ export default async function handler(req, res) {
 
   const { data: permissionRow, error: permissionError } = await serviceClient
     .from('app_role_permissions')
-    .select('app_permissions!inner(code)')
-    .eq('role', String(roleRow.role).trim().toLowerCase())
-    .eq('app_permissions.code', 'leads.import')
+    .select('permission_key')
+    .eq('role_key', String(roleRow.role).trim().toLowerCase())
+    .eq('permission_key', 'leads.import')
     .maybeSingle();
 
   if (permissionError || !permissionRow) {
