@@ -12,7 +12,8 @@ const TABLES = Object.freeze({
   deals: { permission: 'deals.manage', fields: ['lead_id','unit_id','sales_person','deal_value','commission','status','reservation_id','down_payment','installment_months','payment_frequency','contract_date','notes'] },
   reservations: { permission: 'reservations.manage', fields: ['lead_id','unit_id','sales_person','reservation_amount','contract_value','status','expires_at','notes'] },
   deal_payments: { permission: 'finance.manage', fields: ['deal_id','installment_no','due_date','amount','paid_at','status','notes'] },
-  lead_folders: { permission: 'leads.create', fields: ['name','created_by','active'] }
+  lead_folders: { permission: 'leads.create', fields: ['name','created_by','active'] },
+  lead_logs: { permission: 'leads.update', fields: ['lead_id','user_email','action_type','content'] }
 });
 
 function client(key, token) {
