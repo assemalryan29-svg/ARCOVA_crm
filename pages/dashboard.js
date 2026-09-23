@@ -1,4 +1,15 @@
-import { useEffect, useState, useRef } from 'react';
+im
+async function crmCancelPendingFollowups(leadId) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) return;
+  const response = await fetch('/api/crm/followups/cancel-pending?lead_id=' + encodeURIComponent(leadId), {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!response.ok) console.error('Failed to cancel pending followups');
+}
+port { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
 import PipelineBoard from '../components/PipelineBoard';
@@ -499,7 +510,7 @@ export default function Dashboard() {
     const { error } = await crmMutation('PATCH', 'leads', { status: newStatus }, leadId);
     if (!error) {
       setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
-      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Status Change', content: `تغيير حالة العميل: ${newStatus}` }]);
+      await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Status Change', content: `تغيير حالة العميل: ${newStatus}` });
       if (selectedLead?.id === leadId) { setSelectedLead(prev => ({ ...prev, status: newStatus })); fetchLeadLogs(leadId); }
     }
   };
@@ -565,22 +576,13 @@ export default function Dashboard() {
     }
 
     if (dateValue) {
-      await supabase.from('followups').insert([{
-        lead_id: leadId,
-        assigned_to: currentUser.id,
-        followup_date: new Date(dateValue).toISOString(),
-        type: 'Call',
-        status: 'Pending'
-      }]);
+      await crmMutation('POST', 'followups', { lead_id: leadId, assigned_to: currentUser.id, followup_date: new Date(dateValue).toISOString(), type: 'Call', status: 'Pending' });
     } else {
-      await supabase.from('followups')
-        .update({ status: 'Cancelled' })
-        .eq('lead_id', leadId)
-        .eq('status', 'Pending');
+      await crmCancelPendingFollowups(leadId);
     }
 
     setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, next_follow_up: dateValue } : l));
-    await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Follow-up Set', content: `تم جدولة متابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}` }]);
+    await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Follow-up Set', content: `تم جدولة متابعة: ${dateValue ? new Date(dateValue).toLocaleString('ar-EG') : 'لا يوجد'}` });
     if (selectedLead?.id === leadId) {
       setSelectedLead(prev => ({ ...prev, next_follow_up: dateValue }));
       fetchLeadLogs(leadId);
@@ -602,7 +604,7 @@ export default function Dashboard() {
     const { error } = await crmMutation('PATCH', 'leads', { assigned_to: assigneeId || null }, leadId);
     if (!error) {
       setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, assigned_to: assigneeId } : l));
-      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Assign', content: `إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}` }]);
+      await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Assign', content: `إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}` });
       if (selectedLead) fetchLeadLogs(leadId);
     }
   };
