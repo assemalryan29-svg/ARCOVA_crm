@@ -72,3 +72,22 @@ At the same branch snapshot, the repository currently contains 9 migration files
 - `20260923000856_phase1_merge_identity_guard.sql` — added and matches production.
 
 The four mismatched legacy files must not be renamed blindly: their SQL may represent only an earlier revision of the corresponding production change. A future full reconciliation should compare the exact historical SQL/backup against the live schema before changing filenames or migration ordering.
+
+
+## Recovery completion — 2026-09-23
+
+The repository migration directory has now been repaired to an exact **27-file canonical filename set**, matching every version/name reported by the production Supabase migration history.
+
+Actions completed:
+
+- Restored 4 canonical production filenames from pre-existing repository SQL bodies.
+- Reconstructed missing task-owner, compatibility-trigger, duplicate-reporting, user-preference, operational-integrity, normalization, and authorization migrations from the live production catalog.
+- Reconstructed the authorization seed and current RLS policy set directly from the live `app_roles`, `app_permissions`, `app_role_permissions`, `private` functions, and `pg_policies` catalog.
+- Removed 4 legacy alias filenames after their canonical replacements were committed.
+- Added `scripts/migration-parity-check.mjs`; CI now fails if the repository migration filenames differ from the verified 27-file production history.
+
+### Historical fidelity classification
+
+Some recovered files are exact-body recoveries because matching SQL already existed in the repository. Other files are marked `RECOVERED MIGRATION FILE` and are **functional reconstructions** from the current production catalog. They are intended to converge a reconstructed database toward the live schema and security model, but they are not represented as byte-for-byte copies of SQL that is no longer available from migration history metadata.
+
+No production migration-history rows were edited, deleted, or re-applied during this recovery.
