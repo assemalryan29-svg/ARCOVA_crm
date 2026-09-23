@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import { can, normalizeRole, PERMISSIONS } from '../../lib/permissions';
+import { getCurrentIdentity } from '../../lib/auth';
 
 const T={page:{minHeight:'100vh',background:'#f5efe3',color:'#3f321f',padding:16,fontFamily:'Tahoma,"Segoe UI",Arial,sans-serif',direction:'rtl'},shell:{maxWidth:1240,margin:'0 auto'},card:{background:'#fffaf0',border:'1px solid #d9c5a4',borderRadius:16,padding:18,marginBottom:16,boxShadow:'0 8px 24px rgba(118,85,34,.06)'},title:{color:'#765522',margin:'0 0 12px'},muted:{color:'#806f56'},button:{border:'1px solid #b08a4a',background:'#b08a4a',color:'#fffaf0',borderRadius:10,padding:'9px 13px',fontWeight:700,cursor:'pointer'},secondary:{border:'1px solid #d9c5a4',background:'#fffaf0',color:'#765522',borderRadius:10,padding:'9px 13px',fontWeight:700,cursor:'pointer'},danger:{border:'1px solid #b65443',background:'#fff7f4',color:'#9b3e30',borderRadius:10,padding:'9px 13px',fontWeight:700,cursor:'pointer'},input:{width:'100%',minWidth:0,padding:10,border:'1px solid #d9c5a4',borderRadius:10,background:'#fffaf0',color:'#3f321f',fontFamily:'inherit',letterSpacing:'normal'},grid:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:12}};
 const text=v=>v===null||v===undefined||v===''?'غير محدد':String(v);

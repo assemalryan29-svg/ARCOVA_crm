@@ -7,6 +7,7 @@ import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import FollowupsPanel from '../components/FollowupsPanel';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
+import { getCurrentIdentity } from '../lib/auth';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
 
 export default function Dashboard() {
@@ -171,15 +172,14 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { window.location.href = '/'; return; }
+      const identity = await getCurrentIdentity();
+      const { session, user, role, profile } = identity;
+      if (!session || !user) { window.location.href = '/'; return; }
       
-      setCurrentUser(session.user);
+      setCurrentUser(user);
 
-      const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
-      const { data: profileData } = await supabase.from('profiles').select('id,email,full_name,role,active,team_leader_id,manager_id,team_id').eq('id', session.user.id).single();
-      const role = normalizeRole(roleData?.role || profileData?.role);
-      setUserRole(role);
+      const profileData = profile || {};
+      setUserRole(role || 'sales');
 
       const { data: profilesData } = await supabase
         .from('profiles')
