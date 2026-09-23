@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+
+async function crmMutation(method, body) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error('انتهت الجلسة.');
+  const response = await fetch('/api/crm/mutate', { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'فشلت العملية.');
+  return result;
+}
 import { can, PERMISSIONS } from '../lib/permissions';
 
 const statusOptions = ['Pending','Done','Cancelled'];
@@ -21,24 +31,23 @@ export default function FollowupsPanel({ currentUser, userRole, leads = [] }) {
     if (!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)) return;
     const f = new FormData(event.currentTarget);
     setBusy(true);
-    const result = await supabase.from('followups').insert([{
-      lead_id: f.get('lead_id'),
-      assigned_to: currentUser.id,
-      followup_date: new Date(f.get('followup_date')).toISOString(),
-      type: f.get('type') || 'Call',
-      status: 'Pending',
-      notes: f.get('notes') || null
-    }]);
+    let result;
+    try {
+      result = await crmMutation('POST', { table: 'followups', data: {
+        lead_id: f.get('lead_id'), assigned_to: currentUser.id,
+        followup_date: new Date(f.get('followup_date')).toISOString(),
+        type: f.get('type') || 'Call', status: 'Pending', notes: f.get('notes') || null
+      }});
+    } catch (error) { setBusy(false); alert('فشل إنشاء المتابعة: ' + error.message); return; }
     setBusy(false);
-    if (result.error) { alert('فشل إنشاء المتابعة: ' + result.error.message); return; }
+    if (!result?.success) { alert('فشل إنشاء المتابعة.'); return; }
     event.currentTarget.reset();
     await load();
   };
 
   const updateStatus = async (id, status) => {
     if (!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)) return;
-    const result = await supabase.from('followups').update({ status }).eq('id', id);
-    if (result.error) { alert('فشل تحديث المتابعة: ' + result.error.message); return; }
+    try { await crmMutation('PATCH', { table: 'followups', id, data: { status } }); } catch (error) { alert('فشل تحديث المتابعة: ' + error.message); return; }
     await load();
   };
 
