@@ -13,7 +13,7 @@ import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState('sales'); // 'admin', 'sales', 'marketing'
+  const [userRole, setUserRole] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   
   const [leads, setLeads] = useState([]);
@@ -179,7 +179,7 @@ export default function Dashboard() {
       setCurrentUser(user);
 
       const profileData = profile || {};
-      setUserRole(role || 'sales');
+      setUserRole(role || null);
 
       const { data: profilesData } = await supabase
         .from('profiles')
@@ -461,34 +461,41 @@ export default function Dashboard() {
   };
 
   const handleConfirmImport = async () => {
-    if (!importPreview.length) return;
+    if (!importPreview.length || !currentUser?.id) return;
 
-    let importedCount = 0;
-    let skippedCount = importSkippedPreview;
-
-    for (let i = 0; i < importPreview.length; i += 100) {
-      const batch = importPreview.slice(i, i + 100);
-      const { error } = await supabase.from('leads').insert(batch);
-
-      if (!error) {
-        importedCount += batch.length;
-        continue;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
+        return;
       }
 
-      // لو Batch فشل، جرّب السجلات واحدة واحدة حتى لا تضيع السجلات الصحيحة
-      // بسبب سجل واحد مكرر أو غير صالح على مستوى قاعدة البيانات.
-      for (const lead of batch) {
-        const single = await supabase.from('leads').insert([lead]);
-        if (single.error) skippedCount++;
-        else importedCount++;
+      const response = await fetch('/api/leads/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({ leads: importPreview })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert('فشل الاستيراد: ' + (result.error || 'تعذر استيراد العملاء.'));
+        return;
       }
+
+      const importedCount = Number(result.imported || 0);
+      const skippedCount = Number(result.skipped || 0);
+
+      alert(`تم استيراد ${importedCount} عميل بنجاح! وتم تخطي ${skippedCount} سجل غير صالح أو مكرر.`);
+      setImportPreview([]);
+      setImportSkippedPreview(0);
+      setShowImportModal(false);
+      fetchData();
+    } catch (err) {
+      alert('تعذر الاتصال بالخادم أثناء الاستيراد.');
     }
-
-    alert(`تم استيراد ${importedCount} عميل بنجاح! وتم تخطي ${skippedCount} سجل غير صالح أو مكرر.`);
-    setImportPreview([]);
-    setImportSkippedPreview(0);
-    setShowImportModal(false);
-    fetchData();
   };
 
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
