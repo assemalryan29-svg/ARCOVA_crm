@@ -15,8 +15,9 @@ const checks = [
   ['dashboard', 'lead assignment has team gate', /const handleAssignLead[\s\S]{0,500}canManageTeam\(userRole\)/],
   ['dashboard', 'folder creation has lead permission gate', /const handleCreateFolder[\s\S]{0,500}PERMISSIONS\.LEADS_CREATE/],
   ['dashboard', 'financial plan has lead update gate', /const handleSaveFinancialPlan[\s\S]{0,500}PERMISSIONS\.LEADS_UPDATE/],
-  ['team', 'team role editing has users permission gate', /const saveEmployee[\s\S]{0,500}PERMISSIONS\.USERS_MANAGE/],
-  ['team', 'team creation has teams permission gate', /const createTeam[\s\S]{0,450}PERMISSIONS\.TEAMS_MANAGE/]
+  ['team', 'team role editing uses centralized mutation gateway', /const saveEmployee[\s\S]{0,1600}crmMutation\('PATCH', 'user_roles'/],
+  ['team', 'team structure editing uses centralized mutation gateway', /const saveEmployee[\s\S]{0,2200}crmMutation\('PATCH', 'profiles'/],
+  ['team', 'team creation uses centralized mutation gateway', /const createTeam[\s\S]{0,700}crmMutation\('POST', 'teams'/]
 ];
 
 const failures = checks.filter(([source, , pattern]) => !pattern.test(source === 'team' ? teamController : dashboard));
