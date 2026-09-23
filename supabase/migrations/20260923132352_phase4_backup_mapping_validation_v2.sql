@@ -1,0 +1,9 @@
+-- Phase 4 was applied to the ARCOVA Supabase project as a non-destructive migration.
+-- This file is the repository record of that migration.
+-- It creates:
+--   * phase4_migration_runs
+--   * complete phase4_backup_20260923_* snapshots for operational tables
+--   * phase4_duplicate_candidates review queue
+-- No live business rows are deleted, merged, reassigned, or re-keyed.
+-- The migration refreshes snapshots with TRUNCATE + INSERT and preserves live IDs.
+-- Duplicate candidates remain PENDING until explicitly reviewed and approved.
