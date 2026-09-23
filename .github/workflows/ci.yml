@@ -30,7 +30,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Authorization regression checks
-        run: npm run test:authz && npm run test:crud-guardrails && npm run test:architecture
+      - name: Authorization and data integrity checks
+        run: npm run test:authz && npm run test:crud-guardrails && npm run test:architecture && npm run test:phase4-data
       - name: Production build
         run: npm run build
