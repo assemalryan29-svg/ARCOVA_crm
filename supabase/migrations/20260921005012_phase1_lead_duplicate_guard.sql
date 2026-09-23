@@ -1,3 +1,8 @@
+-- RECOVERED MIGRATION FILE
+-- Canonical production version/name restored from Supabase migration history.
+-- SQL body recovered from the pre-existing repository migration 20260921_prevent_duplicate_leads.sql.
+-- Do not edit historical recovery files after verification.
+
 -- ARCOVA CRM: global duplicate protection for leads.
 -- Run this migration in Supabase SQL Editor.
 -- It protects against duplicates even when the lead is outside the current UI page.

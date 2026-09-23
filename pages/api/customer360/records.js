@@ -96,6 +96,12 @@ export default async function handler(req, res) {
   }
   if (!auth.allowed) return res.status(auth.status).json({ error: auth.error });
 
+  // This endpoint performs a physical DELETE. Keep it Admin-only so the
+  // Customer360 path cannot silently bypass the safer archive/permanent-delete policy.
+  if (req.method === 'DELETE' && auth.role !== 'admin') {
+    return res.status(403).json({ error: 'Permanent deletion is restricted to Admin.' });
+  }
+
   if (req.method === 'DELETE') {
     let query = supabase.from(table).delete().eq('id', id);
     if (leadId && ['calls', 'followups', 'appointments', 'reservations', 'deals'].includes(table)) {
@@ -107,7 +113,7 @@ export default async function handler(req, res) {
 
     await supabase.from('audit_logs').insert([{
       user_id: userData.user.id,
-      action: `${table.toUpperCase()}_DELETED`,
+      action: `${table.toUpperCase()}_PERMANENT_DELETE`,
       table_name: table,
       details: { record_id: id, lead_id: leadId || null, role: auth.role },
     }]);

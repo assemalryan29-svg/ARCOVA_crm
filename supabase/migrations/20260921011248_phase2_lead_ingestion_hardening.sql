@@ -1,3 +1,8 @@
+-- RECOVERED MIGRATION FILE
+-- Canonical production version/name restored from Supabase migration history.
+-- SQL body recovered from the pre-existing repository migration 20260921_phase2_lead_ingestion_hardening.sql.
+-- Do not edit historical recovery files after verification.
+
 -- ARCOVA CRM phase 2 lead ingestion hardening.
 -- Applied to Supabase production on 2026-09-21.
 

@@ -1,3 +1,8 @@
+-- RECOVERED MIGRATION FILE
+-- Canonical production version/name restored from Supabase migration history.
+-- SQL body recovered from the pre-existing repository migration 20260922030000_security_and_data_cleanup.sql.
+-- Do not edit historical recovery files after verification.
+
 -- ARCOVA CRM: security alignment and initial data hygiene cleanup.
 -- Applied to production before recording this migration.
 

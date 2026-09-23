@@ -6,8 +6,10 @@ import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import FollowupsPanel from '../components/FollowupsPanel';
+import DuplicateLeadsPanel from '../components/DuplicateLeadsPanel';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
+import { getLeadStatusOptions } from '../lib/leadStatuses';
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,8 @@ export default function Dashboard() {
     operations: 'operations',
     reports: 'reports',
     audit: 'audit',
-    team: 'team'
+    team: 'team',
+    duplicates: 'duplicates'
   };
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -96,14 +99,7 @@ export default function Dashboard() {
   
   const audioCtxRef = useRef(null);
 
-  const statusOptions = [
-    { value: 'New Lead', label: '📥 عميل جديد' },
-    { value: 'Contacted', label: '📞 تم الاتصال' },
-    { value: 'Interested', label: '🔥 مهتم جداً' },
-    { value: 'Meeting Set', label: '📅 تم تحديد موعد' },
-    { value: 'Closed Won', label: '💰 تم التعاقد' },
-    { value: 'Lost', label: '❌ غير مهتم' }
-  ];
+  const statusOptionsFor = (status) => getLeadStatusOptions(status);
 
   useEffect(() => {
     fetchData();
@@ -492,12 +488,55 @@ export default function Dashboard() {
   };
 
   const handleUpdateLeadStatus = async (leadId, newStatus) => {
-    if (!can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
-    const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
-    if (!error) {
-      setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
-      await supabase.from('lead_logs').insert([{ lead_id: leadId, user_email: currentUser.email, action_type: 'Status Change', content: `تغيير حالة العميل: ${newStatus}` }]);
-      if (selectedLead?.id === leadId) { setSelectedLead(prev => ({ ...prev, status: newStatus })); fetchLeadLogs(leadId); }
+    if (!can(userRole, PERMISSIONS.LEADS_UPDATE) || !currentUser?.id) return;
+    const lead = leads.find((item) => item.id === leadId);
+    if (!lead || !getLeadStatusOptions(lead.status).some((option) => option.value === newStatus)) {
+      alert('حالة العميل غير صحيحة.');
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
+        return;
+      }
+
+      const response = await fetch('/api/leads/update', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({
+          id: lead.id,
+          name: lead.name,
+          phone: lead.phone,
+          email: lead.email,
+          lead_source: lead.lead_source,
+          budget: lead.budget,
+          preferred_area: lead.preferred_area,
+          preferred_location: lead.preferred_location,
+          desired_unit_type: lead.desired_unit_type,
+          folder: lead.folder,
+          status: newStatus,
+          temperature: lead.temperature
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert('فشل تحديث حالة العميل: ' + (result.error || 'تعذر تحديث الحالة.'));
+        return;
+      }
+
+      setLeads(prevLeads => prevLeads.map((item) => item.id === leadId ? { ...item, ...result.data } : item));
+      if (selectedLead?.id === leadId) {
+        setSelectedLead(prev => ({ ...prev, ...(result.data || {}), status: newStatus }));
+        fetchLeadLogs(leadId);
+      }
+    } catch (err) {
+      alert('تعذر الاتصال بالخادم: ' + err.message);
     }
   };
 
@@ -747,6 +786,7 @@ export default function Dashboard() {
     ['audit', PERMISSIONS.AUDIT_VIEW],
     ['team', PERMISSIONS.TEAMS_VIEW]
   ].filter(([, permission]) => can(userRole, permission)).map(([view]) => view);
+  if (userRole === 'admin') visibleViews.push('duplicates');
 
   if (loading) return <div style={{ color: '#b08a4a', textAlign: 'center', padding: '5rem', backgroundColor: '#f5efe3', minHeight: '100vh' }}>جاري التحميل...</div>;
 
@@ -857,7 +897,11 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'pipeline' && can(userRole, PERMISSIONS.PIPELINE_VIEW) && (
-          <PipelineBoard leads={filteredLeads} statusOptions={statusOptions} onStatusChange={handleUpdateLeadStatus} onOpenLead={handleOpenLeadDetails} />
+          <PipelineBoard leads={filteredLeads} statusOptions={statusOptionsFor('')} onStatusChange={handleUpdateLeadStatus} onOpenLead={handleOpenLeadDetails} />
+        )}
+
+        {activeTab === 'duplicates' && userRole === 'admin' && (
+          <DuplicateLeadsPanel />
         )}
 
         {activeTab === 'operations' && can(userRole, PERMISSIONS.DEALS_VIEW) && (
@@ -984,7 +1028,7 @@ export default function Dashboard() {
                       <td style={{ padding: '0.8rem' }}>
                         {/* الماركتنج ممنوع من تغيير حالة العميل */}
                         <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={lead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
-                          {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                          {statusOptionsFor(lead.status).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                       </td>
                       <td style={{ padding: '0.8rem', color: lead.next_follow_up ? '#34d399' : '#806f56', fontSize: '0.8rem' }}>
@@ -1262,7 +1306,7 @@ export default function Dashboard() {
                 <span style={{ color: '#b08a4a' }}>الحالة:</span>
                 {/* الماركتنج ممنوع من تغيير حالة العميل */}
                 <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.status || 'New Lead'} onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#fffaf0', color: '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem', opacity: userRole === 'marketing' ? 0.7 : 1 }}>
-                  {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  {statusOptionsFor(lead.status).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
 
