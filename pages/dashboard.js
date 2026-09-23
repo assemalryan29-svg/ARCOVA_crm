@@ -1,15 +1,4 @@
-im
-async function crmCancelPendingFollowups(leadId) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  if (!token) return;
-  const response = await fetch('/api/crm/followups/cancel-pending?lead_id=' + encodeURIComponent(leadId), {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token }
-  });
-  if (!response.ok) console.error('Failed to cancel pending followups');
-}
-port { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
 import PipelineBoard from '../components/PipelineBoard';
@@ -20,6 +9,35 @@ import FollowupsPanel from '../components/FollowupsPanel';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { getCurrentIdentity } from '../lib/auth';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
+
+async function crmMutation(method, table, data, id = null) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) return { data: null, error: new Error('انتهت الجلسة. سجل الدخول مرة أخرى.') };
+  try {
+    const response = await fetch('/api/crm/mutate', {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ table, data, id })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return { data: null, error: new Error(result.error || 'فشلت العملية.') };
+    return { data: result.data || null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+async function crmCancelPendingFollowups(leadId) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) return;
+  const response = await fetch('/api/crm/followups/cancel-pending?lead_id=' + encodeURIComponent(leadId), {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!response.ok) console.error('Failed to cancel pending followups');
+}
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
