@@ -72,8 +72,10 @@ export default async function handler(req, res) {
 
   if (roleError) return res.status(500).json({ error: roleError.message });
 
-  const role = normalizeRole(roleRow?.role);
-  if (!roleRow?.active) return res.status(403).json({ error: 'User account is inactive.' });
+  if (!roleRow?.active || !roleRow?.role) {
+    return res.status(403).json({ error: 'User account is inactive or has no configured role.' });
+  }
+  const role = normalizeRole(roleRow.role);
 
   if (mode === 'permanent') {
     if (!PERMANENT_DELETE_ROLES.has(role)) {
