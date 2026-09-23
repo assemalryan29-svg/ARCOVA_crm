@@ -53,7 +53,9 @@ async function authorize(supabase, userId, table) {
     .eq('id', userId)
     .maybeSingle();
   if (roleError) throw new Error(roleError.message);
-  if (!roleRow?.active) return { allowed: false, status: 403, error: 'User account is inactive.' };
+  if (!roleRow?.active || !roleRow?.role) {
+    return { allowed: false, status: 403, error: 'User account is inactive or has no configured role.' };
+  }
 
   const role = roleFrom(roleRow.role);
   const permissionKey = PERMISSION_BY_TABLE[table];

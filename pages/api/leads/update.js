@@ -51,8 +51,10 @@ export default async function handler(req, res) {
     .maybeSingle();
   if (roleError) return res.status(500).json({ error: 'Unable to verify user role.' });
 
-  const role = normalizeRole(roleRow?.role);
-  if (!roleRow?.active) return res.status(403).json({ error: 'User account is inactive.' });
+  if (!roleRow?.active || !roleRow?.role) {
+    return res.status(403).json({ error: 'User account is inactive or has no configured role.' });
+  }
+  const role = normalizeRole(roleRow.role);
 
   const { data: permission } = await adminClient
     .from('app_role_permissions')
