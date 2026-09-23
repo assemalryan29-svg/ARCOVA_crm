@@ -14,9 +14,12 @@ function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase();
 }
 
-function dbClient(key) {
+function dbClient(key, accessToken = '') {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: accessToken
+      ? { headers: { Authorization: 'Bearer ' + accessToken } }
+      : undefined,
   });
 }
 
@@ -55,7 +58,7 @@ async function authorize(req, adminClient) {
     .maybeSingle();
 
   if (!permission) return null;
-  return { kind: 'user', user: data.user, role };
+  return { kind: 'user', user: data.user, role, accessToken: token };
 }
 
 async function canAssignLead(adminClient, actor, assignedTo) {
@@ -182,7 +185,14 @@ export default async function handler(req, res) {
       external_lead_id: externalLeadId,
     };
 
-    const { data, error } = await adminClient
+    // User-originated writes go through the caller token so Supabase RLS remains
+    // the final enforcement layer. Only the explicit integration path may use
+    // the service-role client to bypass RLS.
+    const writeClient = actor.kind === 'user'
+      ? dbClient(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, actor.accessToken)
+      : adminClient;
+
+    const { data, error } = await writeClient
       .from('leads')
       .insert([lead])
       .select('id,name,phone,email,lead_source,status,assigned_to,created_at')

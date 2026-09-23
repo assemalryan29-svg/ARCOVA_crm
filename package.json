@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:authz": "node scripts/verify-permission-matrix.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

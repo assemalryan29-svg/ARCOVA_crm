@@ -8,7 +8,7 @@ const allowedRoles = new Set([
 async function validateStructure(adminClient, { managerId, teamLeaderId, teamId }) {
   if (managerId) {
     const { data } = await adminClient
-      .from('profiles')
+      .from('user_roles')
       .select('id,role,active')
       .eq('id', managerId)
       .single();
@@ -19,7 +19,7 @@ async function validateStructure(adminClient, { managerId, teamLeaderId, teamId 
 
   if (teamLeaderId) {
     const { data } = await adminClient
-      .from('profiles')
+      .from('user_roles')
       .select('id,role,active')
       .eq('id', teamLeaderId)
       .single();
@@ -94,7 +94,7 @@ export default async function handler(req, res) {
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
     const fullName = String(body.full_name || '').trim().slice(0, 200);
-    const normalizedRole = String(body.role || 'sales').trim().toLowerCase();
+    const normalizedRole = String(body.role || '').trim().toLowerCase();
     const managerId = body.manager_id || null;
     const teamLeaderId = body.team_leader_id || null;
     const teamId = body.team_id || null;
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     }
-    if (!allowedRoles.has(normalizedRole)) {
+    if (!normalizedRole || !allowedRoles.has(normalizedRole)) {
       return res.status(400).json({ error: 'Invalid role.' });
     }
 
