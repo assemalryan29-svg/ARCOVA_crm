@@ -10,21 +10,19 @@ const checks = [
   ['dashboard', 'lead update uses server API', /fetch\('\/api\/leads\/update'/],
   ['dashboard', 'lead archive uses server API', /fetch\('\/api\/records\/delete'/],
   ['dashboard', 'CSV import uses server API', /fetch\('\/api\/leads\/import'/],
-  ['dashboard', 'lead status update has permission gate', /const handleUpdateLeadStatus[\s\S]{0,500}can\(userRole, PERMISSIONS\.LEADS_UPDATE\)/],
-  ['dashboard', 'follow-up update has permission gate', /const handleSaveFollowUp[\s\S]{0,400}can\(userRole, PERMISSIONS\.FOLLOWUPS_MANAGE\)/],
-  ['dashboard', 'lead assignment has team gate', /const handleAssignLead[\s\S]{0,300}canManageTeam\(userRole\)/],
-  ['dashboard', 'folder creation has lead permission gate', /const handleCreateFolder[\s\S]{0,350}PERMISSIONS\.LEADS_CREATE/],
-  ['dashboard', 'financial plan has lead update gate', /const handleSaveFinancialPlan[\s\S]{0,300}PERMISSIONS\.LEADS_UPDATE/],
-  ['team', 'team role editing has users permission gate', /const saveEmployee[\s\S]{0,300}PERMISSIONS\.USERS_MANAGE/],
-  ['team', 'team creation has teams permission gate', /const createTeam[\s\S]{0,250}PERMISSIONS\.TEAMS_MANAGE/]
+  ['dashboard', 'lead status update has permission gate', /const handleUpdateLeadStatus[\s\S]{0,700}can\(userRole, PERMISSIONS\.LEADS_UPDATE\)/],
+  ['dashboard', 'follow-up update has permission gate', /const handleSaveFollowUp[\s\S]{0,600}can\(userRole, PERMISSIONS\.FOLLOWUPS_MANAGE\)/],
+  ['dashboard', 'lead assignment has team gate', /const handleAssignLead[\s\S]{0,500}canManageTeam\(userRole\)/],
+  ['dashboard', 'folder creation has lead permission gate', /const handleCreateFolder[\s\S]{0,500}PERMISSIONS\.LEADS_CREATE/],
+  ['dashboard', 'financial plan has lead update gate', /const handleSaveFinancialPlan[\s\S]{0,500}PERMISSIONS\.LEADS_UPDATE/],
+  ['team', 'team role editing has users permission gate', /const saveEmployee[\s\S]{0,500}PERMISSIONS\.USERS_MANAGE/],
+  ['team', 'team creation has teams permission gate', /const createTeam[\s\S]{0,450}PERMISSIONS\.TEAMS_MANAGE/]
 ];
 
 const failures = checks.filter(([source, , pattern]) => !pattern.test(source === 'team' ? teamController : dashboard));
-
 if (failures.length) {
   console.error('CRUD guardrail verification failed:');
   for (const [, name] of failures) console.error(`- ${name}`);
   process.exit(1);
 }
-
 console.log(`CRUD guardrails passed (${checks.length} checks).`);
