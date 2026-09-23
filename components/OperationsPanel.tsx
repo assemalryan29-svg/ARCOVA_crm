@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+
+async function crmMutation(method, body) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error('انتهت الجلسة.');
+  const response = await fetch('/api/crm/mutate', { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'فشلت العملية.');
+  return result;
+}
 import { can, PERMISSIONS } from '../lib/permissions';
 
 const tabs = [
@@ -45,9 +55,11 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
   const submit = async (event, table, payload, message) => {
     event.preventDefault();
     setBusy(true);
-    const result = await supabase.from(table).insert([payload]);
+    let result;
+    try { result = await crmMutation('POST', { table, data: payload }); }
+    catch (error) { setBusy(false); alert(message + ': ' + error.message); return; }
     setBusy(false);
-    if (result.error) { alert(message + ': ' + result.error.message); return; }
+    if (!result?.success) { alert(message); return; }
     event.currentTarget.reset();
     await load();
   };
