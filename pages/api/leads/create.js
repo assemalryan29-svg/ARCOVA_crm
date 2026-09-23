@@ -24,7 +24,7 @@ async function authorize(req, adminClient) {
   const ingestSecret = process.env.ARCOVA_LEAD_INGEST_SECRET;
   const suppliedSecret = String(req.headers['x-arcova-ingest-secret'] || '');
   if (ingestSecret && suppliedSecret && suppliedSecret === ingestSecret) {
-    return { kind: 'integration', user: null };
+    return { kind: 'integration', user: null, role: 'integration' };
   }
 
   const authHeader = String(req.headers.authorization || '');
@@ -46,7 +46,7 @@ async function authorize(req, adminClient) {
 
   if (!roleRow?.active) return null;
 
-  const role = String(roleRow.role || 'sales').toLowerCase();
+  const role = String(roleRow.role || 'sales').toLowerCase().replace(/\s+/g, '_');
   const { data: permission } = await adminClient
     .from('app_role_permissions')
     .select('permission_key')
@@ -55,7 +55,26 @@ async function authorize(req, adminClient) {
     .maybeSingle();
 
   if (!permission) return null;
-  return { kind: 'user', user: data.user };
+  return { kind: 'user', user: data.user, role };
+}
+
+async function canAssignLead(adminClient, actor, assignedTo) {
+  if (!assignedTo || actor.kind === 'integration') return true;
+  if (assignedTo === actor.user.id) return true;
+
+  if (['admin', 'ceo', 'manager'].includes(actor.role)) return true;
+  if (actor.role !== 'team_leader') return false;
+
+  const [{ data: caller }, { data: target }] = await Promise.all([
+    adminClient.from('profiles').select('id,team_id').eq('id', actor.user.id).maybeSingle(),
+    adminClient.from('profiles').select('id,team_id,team_leader_id').eq('id', assignedTo).maybeSingle(),
+  ]);
+
+  if (!target) return false;
+  return Boolean(
+    target.team_leader_id === actor.user.id ||
+    (caller?.team_id && target.team_id && caller.team_id === target.team_id)
+  );
 }
 
 async function findDuplicate(adminClient, { phone, email, externalSource, externalLeadId }) {
@@ -138,13 +157,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid budget.' });
     }
 
+    const requestedAssignee = text(body.assigned_to, 100) || null;
+    if (actor.kind === 'user' && !(await canAssignLead(adminClient, actor, requestedAssignee))) {
+      return res.status(403).json({ error: 'You cannot assign a lead outside your permitted scope.' });
+    }
+
+    const assignedTo = actor.kind === 'user'
+      ? (requestedAssignee || (['admin', 'ceo', 'manager'].includes(actor.role) ? null : actor.user.id))
+      : requestedAssignee;
+
     const lead = {
       name,
       phone,
       email: email || null,
       lead_source: text(body.lead_source, 100) || 'API',
       status: 'New Lead',
-      assigned_to: body.assigned_to || null,
+      assigned_to: assignedTo,
       folder: text(body.folder, 150) || null,
       desired_unit_type: text(body.desired_unit_type, 150) || null,
       budget: budgetValue,
@@ -172,7 +200,7 @@ export default async function handler(req, res) {
         user_id: actor.user.id,
         action: 'CREATE_LEAD_API',
         table_name: 'leads',
-        details: { lead_id: data.id, source: lead.lead_source },
+        details: { lead_id: data.id, source: lead.lead_source, assigned_to: lead.assigned_to },
       }]);
     }
 
