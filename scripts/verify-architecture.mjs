@@ -6,7 +6,8 @@ const files = [
   'pages/dashboard.js',
   'components/FollowupsPanel.tsx',
   'components/OperationsPanel.tsx',
-  'components/ReportsPanel.tsx'
+  'components/ReportsPanel.tsx',
+  'components/TeamController.tsx'
 ];
 
 const forbiddenMutation = /supabase\.from\([^)]*\)\.(insert|update|delete|upsert)\s*\(/;
