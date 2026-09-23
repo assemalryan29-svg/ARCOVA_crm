@@ -143,7 +143,9 @@ export default async function handler(req, res) {
     ...(temperature !== undefined ? { temperature } : {}),
   };
 
-  const { data, error } = await adminClient
+  // Perform the actual write with the caller's token so Supabase RLS
+  // remains the final enforcement layer after the API-level scope check.
+  const { data, error } = await publicClient
     .from('leads')
     .update(updates)
     .eq('id', id)
