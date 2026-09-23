@@ -8,6 +8,7 @@ function formatDate(value) {
 
 export default function DuplicateLeadsPanel() {
   const [groups, setGroups] = useState([]);
+  const [primaryByGroup, setPrimaryByGroup] = useState({});
   const [loading, setLoading] = useState(true);
   const [workingKey, setWorkingKey] = useState('');
   const [error, setError] = useState('');
@@ -32,7 +33,17 @@ export default function DuplicateLeadsPanel() {
         return;
       }
 
-      setGroups(result.groups || []);
+      const nextGroups = result.groups || [];
+      setGroups(nextGroups);
+      setPrimaryByGroup((prev) => {
+        const next = { ...prev };
+        for (const group of nextGroups) {
+          const key = `${group.identity_type}:${group.identity_key}`;
+          const ids = (group.leads || []).map((lead) => lead.id);
+          if (!ids.includes(next[key])) next[key] = ids[0] || '';
+        }
+        return next;
+      });
     } catch (err) {
       setError('تعذر الاتصال بالخادم.');
     } finally {
@@ -48,11 +59,15 @@ export default function DuplicateLeadsPanel() {
     const leads = group.leads || [];
     if (leads.length < 2) return;
 
-    const primary = leads[0];
-    const duplicates = leads.slice(1);
+    const key = `${group.identity_type}:${group.identity_key}`;
+    const primaryId = primaryByGroup[key] || leads[0]?.id;
+    const primary = leads.find((lead) => lead.id === primaryId) || leads[0];
+    const duplicates = leads.filter((lead) => lead.id !== primary.id);
+    if (!primary || !duplicates.length) return;
+
     const duplicateNames = duplicates.map((lead) => lead.name || 'بدون اسم').join('، ');
     const confirmed = window.confirm(
-      `سيتم الاحتفاظ بالعميل "${primary.name || 'بدون اسم'}" ودمج ${duplicates.length} سجل معه، ثم حذف السجلات المكررة نهائيًا بعد نقل كل الأنشطة المرتبطة.\n\nالمكررات: ${duplicateNames}\n\nهل تؤكد العملية؟`
+      `سيتم الاحتفاظ بالعميل "${primary.name || 'بدون اسم'}" كسجل أساسي ودمج ${duplicates.length} سجل معه، ثم حذف السجلات المكررة نهائيًا بعد نقل كل الأنشطة المرتبطة.\n\nالمكررات: ${duplicateNames}\n\nهل تؤكد العملية؟`
     );
     if (!confirmed) return;
 
@@ -143,33 +158,45 @@ export default function DuplicateLeadsPanel() {
               </div>
 
               <div style={{ display: 'grid', gap: 8 }}>
-                {leads.map((lead, index) => (
-                  <div key={lead.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: 10, backgroundColor: '#fffaf0', border: index === 0 ? '2px solid #b08a4a' : '1px solid #d9c5a4', borderRadius: 8 }}>
-                    <div style={{ minWidth: 220 }}>
-                      <div style={{ fontWeight: 800, color: '#3f321f' }}>{lead.name || 'بدون اسم'}</div>
-                      <div style={{ fontSize: 12, color: '#806f56', marginTop: 3 }}>{lead.phone || '-'} · {lead.email || '-'}</div>
-                      <div style={{ fontSize: 11, color: '#806f56', marginTop: 3 }}>{lead.status || '-'} · {formatDate(lead.created_at)}</div>
+                {leads.map((lead) => {
+                  const isPrimary = (primaryByGroup[key] || leads[0]?.id) === lead.id;
+                  return (
+                    <div key={lead.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: 10, backgroundColor: '#fffaf0', border: isPrimary ? '2px solid #b08a4a' : '1px solid #d9c5a4', borderRadius: 8 }}>
+                      <div style={{ minWidth: 220 }}>
+                        <div style={{ fontWeight: 800, color: '#3f321f' }}>{lead.name || 'بدون اسم'}</div>
+                        <div style={{ fontSize: 12, color: '#806f56', marginTop: 3 }}>{lead.phone || '-'} · {lead.email || '-'}</div>
+                        <div style={{ fontSize: 11, color: '#806f56', marginTop: 3 }}>{lead.status || '-'} · {formatDate(lead.created_at)}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {isPrimary ? (
+                          <span style={{ padding: '0.35rem 0.55rem', borderRadius: 5, backgroundColor: '#d9c5a4', color: '#b08a4a', fontWeight: 800, fontSize: 11 }}>السجل الأساسي</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setPrimaryByGroup((prev) => ({ ...prev, [key]: lead.id }))}
+                            style={{ padding: '0.35rem 0.55rem', borderRadius: 5, backgroundColor: '#fffaf0', color: '#3f321f', border: '1px solid #b08a4a', cursor: 'pointer', fontSize: 11 }}
+                          >
+                            اختيار كأساسي
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {index === 0 ? (
-                        <span style={{ padding: '0.35rem 0.55rem', borderRadius: 5, backgroundColor: '#d9c5a4', color: '#b08a4a', fontWeight: 800, fontSize: 11 }}>أساسي حالي</span>
-                      ) : (
-                        <span style={{ padding: '0.35rem 0.55rem', borderRadius: 5, backgroundColor: '#fff1ee', color: '#a7352b', fontSize: 11 }}>مرشح للدمج</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {leads.length >= 2 && (
-                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ color: '#806f56', fontSize: 11 }}>
+                  السجل الأساسي المحدد: <strong style={{ color: '#3f321f' }}>{primary?.name || 'بدون اسم'}</strong>
+                </div>
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => handleMerge(group)}
                     style={{ padding: '0.55rem 0.9rem', backgroundColor: busy ? '#cbbd9f' : '#a7352b', color: '#fff', border: 0, borderRadius: 6, cursor: busy ? 'not-allowed' : 'pointer', fontWeight: 800 }}
                   >
-                    {busy ? 'جاري الدمج...' : 'دمج واحتفاظ بالسجل الأقدم'}
+                    {busy ? 'جاري الدمج...' : 'دمج السجلات المحددة'}
                   </button>
                 </div>
               )}
