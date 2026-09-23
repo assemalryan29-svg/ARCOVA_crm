@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
+
+async function crmMutation(method, table, data, id) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) throw new Error('انتهت الجلسة.');
+  const response = await fetch('/api/crm/mutate', { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ table, data, id }) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'فشلت العملية.');
+  return result;
+}
+
 import { can, PERMISSIONS } from '../lib/permissions';
 
 const ROLE_OPTIONS = [
@@ -101,39 +112,25 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
     setError('');
 
     try {
-      const profileResult = await supabase
-        .from('profiles')
-        .update({
-          role: nextRole,
-          manager_id: draft.manager_id || null,
-          team_leader_id: draft.team_leader_id || null,
-          team_id: draft.team_id || null,
-          active: Boolean(draft.active)
-        })
-        .eq('id', profile.id)
-        .select('id')
-        .maybeSingle();
+      await crmMutation('PATCH', 'user_roles', {
+        email: draft.email || profile.email || null,
+        role: nextRole,
+        active: Boolean(draft.active)
+      }, profile.id);
 
-      if (profileResult.error) throw new Error('فشل تحديث بيانات الموظف: ' + profileResult.error.message);
-      if (!profileResult.data) throw new Error('لم يتم حفظ بيانات الموظف. تحقق من صلاحيات قاعدة البيانات RLS.');
-
-      const roleResult = await supabase
-        .from('user_roles')
-        .update({ role: nextRole, active: Boolean(draft.active) })
-        .eq('id', profile.id)
-        .select('id')
-        .maybeSingle();
-
-      if (roleResult.error) throw new Error('تم تحديث الموظف لكن فشل تحديث جدول الصلاحيات: ' + roleResult.error.message);
-      if (!roleResult.data) throw new Error('لم يتم تحديث جدول الصلاحيات. تأكد أن سجل الموظف موجود في user_roles.');
+      await crmMutation('PATCH', 'profiles', {
+        manager_id: draft.manager_id || null,
+        team_leader_id: draft.team_leader_id || null,
+        team_id: draft.team_id || null,
+        active: Boolean(draft.active)
+      }, profile.id);
 
       setMessage('تم حفظ بيانات الموظف والصلاحيات بنجاح.');
       await load();
-      onSaved?.();
-    } catch (saveError) {
-      setError(saveError.message || 'حدث خطأ أثناء الحفظ.');
+    } catch (error) {
+      setError(error.message || 'تعذر حفظ بيانات الموظف.');
     } finally {
-      setSavingId('');
+      setSavingId(null);
     }
   };
 
@@ -143,24 +140,24 @@ export default function TeamController({ userRole = 'sales', onSaved }) {
     setMessage('');
     setError('');
 
-    const result = await supabase.from('teams').insert([{
-      name: teamName.trim(),
-      manager_id: teamManager || null,
-      leader_id: teamLeader || null,
-      active: true
-    }]).select('id').maybeSingle();
+    try {
+      await crmMutation('POST', 'teams', {
+        name: teamName.trim(),
+        manager_id: teamManager || null,
+        leader_id: teamLeader || null,
+        active: true
+      });
 
-    if (result.error) {
-      setError('فشل إنشاء الفريق: ' + result.error.message);
-      return;
+      setTeamName('');
+      setTeamManager('');
+      setTeamLeader('');
+      setMessage('تم إنشاء الفريق بنجاح.');
+      await load();
+    } catch (error) {
+      setError(error.message || 'فشل إنشاء الفريق.');
     }
-
-    setTeamName('');
-    setTeamManager('');
-    setTeamLeader('');
-    setMessage('تم إنشاء الفريق بنجاح.');
-    await load();
   };
+
 
   return (
     <div className="team-controller" dir="rtl">
