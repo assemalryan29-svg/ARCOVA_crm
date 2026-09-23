@@ -44,9 +44,9 @@ async function authorize(req, adminClient) {
     .eq('id', data.user.id)
     .single();
 
-  if (!roleRow?.active) return null;
+  if (!roleRow?.active || !roleRow?.role) return null;
 
-  const role = String(roleRow.role || 'sales').toLowerCase().replace(/\s+/g, '_');
+  const role = String(roleRow.role).trim().toLowerCase().replace(/\s+/g, '_');
   const { data: permission } = await adminClient
     .from('app_role_permissions')
     .select('permission_key')
