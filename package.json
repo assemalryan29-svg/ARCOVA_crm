@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node scripts/policy-contract-check.mjs"
+    "test": "node scripts/policy-contract-check.mjs && node scripts/migration-parity-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
