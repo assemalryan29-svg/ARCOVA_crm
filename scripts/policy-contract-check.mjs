@@ -64,7 +64,7 @@ assert.equal((permissions.match(/'[^']+'/g) || []).filter((v) => v.includes('.')
 
 for (const [role, expected] of Object.entries(expectedPermissionCounts)) {
   if (role === 'admin' || role === 'ceo') continue;
-  const marker = new RegExp(`\\b${role}: new Set\\(\\[(.*?)\\]\\),`, 's');
+  const marker = new RegExp(`\\b${role}\\s*:\\s*new Set\\(\\[(.*?)\\]\\)`, 's');
   const match = permissions.match(marker);
   assert.ok(match, `Permission matrix entry missing for ${role}`);
   const count = (match[1].match(/'[^']+'/g) || []).length;
