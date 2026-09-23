@@ -22,7 +22,7 @@ export default function ReportsPanel({ leads = [], tasks = [], userRole = 'sales
       supabase.from('followups').select('status,followup_date'),
       supabase.from('calls').select('call_at,outcome'),
       supabase.from('appointments').select('scheduled_at,status'),
-      supabase.from('projects').select('id,status'),
+      supabase.from('projects').select('id,name'),
       supabase.from('units').select('id,status,price')
     ]).then(([d,r,p,f,c,a,pr,u]) => {
       if (!active) return;
