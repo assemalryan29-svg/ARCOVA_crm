@@ -55,3 +55,20 @@ The SQL bodies for older production migrations are not exposed by the available 
 Before closing the migration-drift item, obtain the canonical SQL source/archive for the older production migrations and restore every verified migration file into `supabase/migrations/` in the exact historical order. Then compare the resulting repository migration set against the production list before the next production schema change.
 
 This document is a baseline/recovery record, not a license to run `db reset`, rewrite migration history, or delete production migration records.
+
+
+## Repository migration-file audit
+
+At the same branch snapshot, the repository currently contains 9 migration files:
+
+- `20260921191039_cleanup_lead_indexes_and_normalized_data.sql` — exact live version/name match.
+- `20260921233336_remove_duplicate_leads_created_index.sql` — exact live version/name match.
+- `20260921_campaign_status.sql` — filename does not contain the live 14-digit version `20260921153135`.
+- `20260921_phase2_lead_ingestion_hardening.sql` — filename does not contain the live 14-digit version `20260921011248`.
+- `20260921_prevent_duplicate_leads.sql` — filename does not match the live migration name/version `20260921005012_phase1_lead_duplicate_guard`.
+- `20260922030000_security_and_data_cleanup.sql` — filename does not match the live migration version `20260921235746`.
+- `20260923000759_phase1_atomic_lead_merge.sql` — added and matches production.
+- `20260923000817_phase1_atomic_lead_merge_fix.sql` — added and matches production.
+- `20260923000856_phase1_merge_identity_guard.sql` — added and matches production.
+
+The four mismatched legacy files must not be renamed blindly: their SQL may represent only an earlier revision of the corresponding production change. A future full reconciliation should compare the exact historical SQL/backup against the live schema before changing filenames or migration ordering.
