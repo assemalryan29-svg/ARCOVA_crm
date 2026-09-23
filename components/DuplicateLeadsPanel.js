@@ -71,7 +71,6 @@ export default function DuplicateLeadsPanel() {
     );
     if (!confirmed) return;
 
-    const key = `${group.identity_type}:${group.identity_key}`;
     setWorkingKey(key);
     setError('');
 
@@ -143,7 +142,8 @@ export default function DuplicateLeadsPanel() {
         {groups.map((group) => {
           const leads = group.leads || [];
           const key = `${group.identity_type}:${group.identity_key}`;
-          const primary = leads[0];
+          const selectedPrimaryId = primaryByGroup[key] || leads[0]?.id;
+          const primary = leads.find((lead) => lead.id === selectedPrimaryId) || leads[0];
           const busy = workingKey === key;
 
           return (
