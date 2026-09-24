@@ -793,6 +793,18 @@ export default function Dashboard() {
             .arcova-mobile-leads { display: grid; gap: 12px; }
             .arcova-desktop-leads { display: none !important; }
             .arcova-dashboard-content main { padding: 0.85rem !important; }
+            .arcova-dashboard-content header { flex-direction: column !important; align-items: stretch !important; gap: 10px; padding: 0.75rem 0.85rem !important; }
+            .arcova-dashboard-content header > div:last-child { justify-content: center; flex-wrap: wrap; gap: 0.45rem !important; border-radius: 14px !important; }
+          }
+          .arcova-dashboard-content input,
+          .arcova-dashboard-content select,
+          .arcova-dashboard-content textarea {
+            color: #3f321f !important;
+          }
+          .arcova-dashboard-content input::placeholder,
+          .arcova-dashboard-content textarea::placeholder {
+            color: #8a7b66 !important;
+            opacity: 1;
           }
 
           .arcova-dashboard-shell { display: flex; flex-direction: row; width: 100%; }
