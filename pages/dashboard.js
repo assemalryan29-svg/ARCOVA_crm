@@ -6,6 +6,8 @@ import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import FollowupsPanel from '../components/FollowupsPanel';
+import LeadCard from '../components/LeadCard';
+import DailyBrief from '../components/DailyBrief';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { getCurrentIdentity } from '../lib/auth';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
@@ -156,7 +158,7 @@ export default function Dashboard() {
     if (!audioEnabled) return;
     const interval = setInterval(() => {
       const todayStr = new Date().toISOString().slice(0, 10);
-      const hasDue = leads.some(l => l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
+      const hasDue = leads.some(l => l.status !== 'Archived' && l.next_follow_up && new Date(l.next_follow_up).toISOString().slice(0, 10) <= todayStr);
       if (hasDue) playNotificationSound();
     }, 60000);
     return () => clearInterval(interval);
@@ -583,10 +585,7 @@ export default function Dashboard() {
   const handleSaveFollowUp = async (leadId, dateValue) => {
     if (!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)) return;
 
-    const { error: leadError } = await supabase
-      .from('leads')
-      .update({ next_follow_up: dateValue || null })
-      .eq('id', leadId);
+    const { error: leadError } = await crmMutation('PATCH', 'leads', { next_follow_up: dateValue || null }, leadId);
 
     if (leadError) {
       alert('فشل تحديث متابعة العميل: ' + leadError.message);
@@ -625,6 +624,15 @@ export default function Dashboard() {
       await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Assign', content: `إسناد العميل إلى: ${target ? target.email : 'غير مخصص'}` });
       if (selectedLead) fetchLeadLogs(leadId);
     }
+  };
+
+  const handleLeadCardFolderOrAssignment = async (key, value) => {
+    if (String(key).startsWith('__ASSIGN__:')) {
+      const leadId = String(key).slice('__ASSIGN__:'.length);
+      await handleAssignLead(leadId, value);
+      return;
+    }
+    await handleMoveLeadToFolder(key, value);
   };
 
   const handleCreateUser = async (e) => {
@@ -693,14 +701,14 @@ export default function Dashboard() {
     if (!error) { alert('تم حفظ الخطة المالية في ملف العميل'); fetchLeadLogs(selectedLead.id); }
   };
 
-  const handleArchiveLead = async () => {
-    if (!selectedLead || !can(userRole, PERMISSIONS.LEADS_DELETE)) return;
-    const confirmed = window.confirm('هل تريد أرشفة العميل "' + (selectedLead.name || 'بدون اسم') + '"؟ سيختفي من القائمة الحالية ويمكن الاحتفاظ به في قاعدة البيانات.');
+  const handleArchiveLead = async (lead = selectedLead) => {
+    if (!lead || !can(userRole, PERMISSIONS.LEADS_DELETE)) return;
+    const confirmed = window.confirm('هل تريد أرشفة العميل "' + (lead.name || 'بدون اسم') + '"؟ سيختفي من القائمة الحالية ويمكن الاحتفاظ به في قاعدة البيانات.');
     if (!confirmed) return;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.access_token) {
         alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
         return;
       }
@@ -711,7 +719,7 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + session.access_token
         },
-        body: JSON.stringify({ table: 'leads', id: selectedLead.id, mode: 'archive' })
+        body: JSON.stringify({ table: 'leads', id: lead.id, mode: 'archive' })
       });
 
       const result = await response.json();
@@ -720,8 +728,9 @@ export default function Dashboard() {
         return;
       }
 
-      setLeads(prev => prev.filter(lead => lead.id !== selectedLead.id));
-      setSelectedLead(null);
+      await crmCancelPendingFollowups(lead.id);
+      setLeads(prev => prev.map(item => item.id === lead.id ? { ...item, status: 'Archived', next_follow_up: null } : item));
+      setSelectedLead(prev => prev?.id === lead.id ? null : prev);
       alert('تمت أرشفة العميل بنجاح');
       fetchData();
     } catch (err) {
@@ -778,6 +787,14 @@ export default function Dashboard() {
       <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} visibleViews={visibleViews} />
       <div className="arcova-dashboard-content" style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
         <style jsx>{`
+          .arcova-mobile-leads { display: none; }
+          .arcova-desktop-leads { display: block; }
+          @media (max-width: 768px) {
+            .arcova-mobile-leads { display: grid; gap: 12px; }
+            .arcova-desktop-leads { display: none !important; }
+            .arcova-dashboard-content main { padding: 0.85rem !important; }
+          }
+
           .arcova-dashboard-shell { display: flex; flex-direction: row; width: 100%; }
           .arcova-dashboard-content { width: 100%; }
           @media (max-width: 768px) {
@@ -854,7 +871,18 @@ export default function Dashboard() {
 
       <main style={{ padding: '1.5rem' }}>
         {activeTab === 'overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <>
+          <DailyBrief
+            leads={activeLeads}
+            followups={followups}
+            tasks={tasks}
+            onLeadOpen={(leadId) => {
+              const target = leads.find((lead) => lead.id === leadId);
+              if (target) handleOpenLeadDetails(target);
+            }}
+            onOpenReminders={() => setActiveTab('reminders')}
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ backgroundColor: '#fffaf0', border: '1px solid #d9c5a4', borderRight: '4px solid #b08a4a', padding: '1rem', borderRadius: '6px' }}>
             <div style={{ fontSize: '0.75rem', color: '#806f56' }}>إجمالي العملاء</div>
             <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#b08a4a', marginTop: '0.3rem' }}>{totalLeadsCount}</div>
@@ -875,8 +903,8 @@ export default function Dashboard() {
             <div style={{ fontSize: '0.75rem', color: '#806f56' }}>إجمالي الصفقات</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#a855f7', marginTop: '0.3rem' }}>{totalDealsValue.toLocaleString()} ج</div>
           </div>
-        </div>
-
+          </div>
+        </>
         )}
 
         {activeTab === 'pipeline' && can(userRole, PERMISSIONS.PIPELINE_VIEW) && (
@@ -969,7 +997,32 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div style={{ backgroundColor: '#fffaf0', borderRadius: '6px', overflowX: 'auto', border: '1px solid #d9c5a4' }}>
+            <div className="arcova-mobile-leads">
+              {filteredLeads.map((lead) => (
+                <LeadCard
+                  key={lead.id}
+                  lead={lead}
+                  userRole={userRole}
+                  folders={folders}
+                  teamMembers={teamMembers}
+                  canUpdate={can(userRole, PERMISSIONS.LEADS_UPDATE)}
+                  canDelete={can(userRole, PERMISSIONS.LEADS_DELETE)}
+                  canAssign={canManageTeam(userRole)}
+                  statusOptions={statusOptions}
+                  onOpen={handleOpenLeadDetails}
+                  onStatusChange={handleUpdateLeadStatus}
+                  onFolderChange={handleLeadCardFolderOrAssignment}
+                  onArchive={handleArchiveLead}
+                />
+              ))}
+              {!filteredLeads.length && (
+                <div style={{ background:'#fffaf0', border:'1px solid #d9c5a4', borderRadius:14, padding:20, textAlign:'center', color:'#806f56' }}>
+                  لا توجد عملاء مطابقون للفلاتر الحالية.
+                </div>
+              )}
+            </div>
+
+            <div className="arcova-desktop-leads" style={{ backgroundColor: '#fffaf0', borderRadius: '6px', overflowX: 'auto', border: '1px solid #d9c5a4' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f5efe3', color: '#b08a4a', borderBottom: '1px solid #d9c5a4' }}>
@@ -1027,6 +1080,10 @@ export default function Dashboard() {
                       </td>
                       <td style={{ padding: '0.8rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                         <button onClick={() => handleOpenLeadDetails(lead)} title="تفاصيل وفيدباك" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>التفاصيل</button>
+                        {can(userRole, PERMISSIONS.LEADS_DELETE) && (
+                          <button type="button" onClick={() => handleArchiveLead(lead)} title="أرشفة العميل" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#fff7f2', color: '#a7352b', border: '1px solid #d9a07a', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>🗑️</button>
+                        )}
+                        <a href={`/customer360?lead_id=${encodeURIComponent(lead.id)}`} title="Customer 360" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#f5efe3', color: '#765522', border: '1px solid #d9c5a4', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.75rem' }}>360°</a>
 
                         {/* خيار نقل العميل إلى مجلد */}
                         <select 
@@ -1259,7 +1316,7 @@ export default function Dashboard() {
             </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
                 {can(userRole, PERMISSIONS.LEADS_DELETE) && (
-                  <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="حذف العميل من القائمة مع الاحتفاظ به في الأرشيف">🗑️ حذف العميل</button>
+                  <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="حذف العميل من القائمة مع الاحتفاظ به في الأرشيف">🗑️ حذف العميل</button><a href={`/customer360?lead_id=${encodeURIComponent(selectedLead.id)}`} style={{ padding:'0.4rem 0.8rem', backgroundColor:'#f5efe3', color:'#765522', border:'1px solid #d9c5a4', borderRadius:'4px', textDecoration:'none', fontSize:'0.8rem', fontWeight:'bold' }}>360° الملف الكامل</a>
                 )}
               </div>
             
