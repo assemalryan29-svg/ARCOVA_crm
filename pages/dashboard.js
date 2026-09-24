@@ -1328,8 +1328,9 @@ export default function Dashboard() {
             </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
                 {can(userRole, PERMISSIONS.LEADS_DELETE) && (
-                  <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="حذف العميل من القائمة مع الاحتفاظ به في الأرشيف">🗑️ حذف العميل</button><a href={`/customer360?lead_id=${encodeURIComponent(selectedLead.id)}`} style={{ padding:'0.4rem 0.8rem', backgroundColor:'#f5efe3', color:'#765522', border:'1px solid #d9c5a4', borderRadius:'4px', textDecoration:'none', fontSize:'0.8rem', fontWeight:'bold' }}>360° الملف الكامل</a>
+                  <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="حذف العميل من القائمة مع الاحتفاظ به في الأرشيف">🗑️ حذف العميل</button>
                 )}
+                <a href={`/customer360?lead_id=${encodeURIComponent(selectedLead.id)}`} style={{ padding:'0.4rem 0.8rem', backgroundColor:'#f5efe3', color:'#765522', border:'1px solid #d9c5a4', borderRadius:'4px', textDecoration:'none', fontSize:'0.8rem', fontWeight:'bold' }}>360° الملف الكامل</a>
               </div>
             
             <form onSubmit={handleSaveLeadExtendedDetails} style={{ backgroundColor: '#f5efe3', padding: '0.8rem', borderRadius: '4px', margin: '0.8rem 0', border: '1px solid #d9c5a4', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
