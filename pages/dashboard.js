@@ -139,6 +139,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
+    const refreshTimer = setInterval(() => fetchData(), 5 * 60 * 1000);
+    return () => clearInterval(refreshTimer);
   }, []);
 
   // دعم التنقل الأصلي عبر Hash: يعمل حتى على الموبايل بدون Reload.
@@ -755,7 +757,7 @@ export default function Dashboard() {
     return l.status !== 'Archived' && matchesSearch && matchesFolder && matchesCampaignOrProject;
   });
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = (() => { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; })();
   const dueFollowUps = followups.filter((f) => f.status === 'Pending' && f.followup_date && new Date(f.followup_date).toISOString().slice(0, 10) <= todayStr);
 
   const activeLeads = leads.filter(l => l.status !== 'Archived');
@@ -874,6 +876,7 @@ export default function Dashboard() {
             </span>
           </div>
 
+          <button onClick={() => fetchData()} style={{ padding: '0.3rem 0.7rem', backgroundColor: 'transparent', color: '#765522', border: '1px solid #d9c5a4', borderRadius: '15px', cursor: 'pointer', fontSize: '0.75rem' }}>↻ تحديث</button>
           {canManageUsers(userRole) && (
             <button onClick={() => setShowUserModal(true)} style={{ padding: '0.3rem 0.7rem', backgroundColor: 'transparent', color: '#b08a4a', border: '1px solid #b08a4a', borderRadius: '15px', cursor: 'pointer', fontSize: '0.75rem' }}>+ موظف</button>
           )}
@@ -1127,11 +1130,11 @@ export default function Dashboard() {
           <FollowupsPanel currentUser={currentUser} userRole={userRole} leads={leads} />
         )}
 
-        {activeTab === 'tasks' && (
+        {activeTab === 'tasks' && can(userRole, PERMISSIONS.TASKS_VIEW) && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة المهام والأنشطة</h3>
-              <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مهمة جديدة</button>
+              {can(userRole, PERMISSIONS.TASKS_MANAGE) &&               <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مهمة جديدة</button>}
             </div>
             <div style={{ backgroundColor: '#fffaf0', borderRadius: '6px', overflowX: 'auto', border: '1px solid #d9c5a4' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
@@ -1152,10 +1155,10 @@ export default function Dashboard() {
                       <td style={{ padding: '0.8rem', color: '#f87171' }}>{task.due_date ? new Date(task.due_date).toLocaleString('ar-EG') : 'غير محدد'}</td>
                       <td style={{ padding: '0.8rem', color: '#806f56' }}>{task.description || '-'}</td>
                       <td style={{ padding: '0.8rem' }}>
-                        <select value={task.status || 'Pending'} onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: task.status === 'Completed' ? '#34d399' : '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        {can(userRole, PERMISSIONS.TASKS_MANAGE) ? (                        <select value={task.status || 'Pending'} onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: task.status === 'Completed' ? '#34d399' : '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
                           <option value="Pending">⏳ قيد التنفيذ</option>
                           <option value="Completed">✅ مكتملة</option>
-                        </select>
+                        </select>) : (<span style={{ color: '#806f56', fontSize: '0.8rem' }}>{task.status === 'Completed' ? '✅ مكتملة' : '⏳ قيد التنفيذ'}</span>)}
                       </td>
                     </tr>
                   ))}
