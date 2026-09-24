@@ -45,6 +45,7 @@ export default function FollowupsPanel({ currentUser, userRole, leads = [] }) {
     setBusy(false);
     if (!result?.success) { alert('فشل إنشاء المتابعة.'); return; }
     event.currentTarget.reset();
+    await syncLeadNextFollowup(f.get('lead_id'));
     await load();
   };
 
@@ -52,6 +53,14 @@ export default function FollowupsPanel({ currentUser, userRole, leads = [] }) {
     if (!can(userRole, PERMISSIONS.FOLLOWUPS_MANAGE)) return;
     try { await crmMutation('PATCH', { table: 'followups', id, data: { status } }); } catch (error) { alert('فشل تحديث المتابعة: ' + error.message); return; }
     await load();
+  };
+
+  const syncLeadNextFollowup = async (leadId) => {
+    if (!leadId) return;
+    const result = await supabase.from('followups').select('followup_date').eq('lead_id', leadId).eq('status', 'Pending').order('followup_date', { ascending: true }).limit(1);
+    if (result.error) throw result.error;
+    const nextFollowup = result.data?.[0]?.followup_date || null;
+    await crmMutation('PATCH', { table: 'leads', id: leadId, data: { next_follow_up: nextFollowup } });
   };
 
   const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
@@ -62,7 +71,7 @@ export default function FollowupsPanel({ currentUser, userRole, leads = [] }) {
     setBusy(true);
     try {
       await crmMutation('PATCH', { table: 'followups', id: item.id, data: { status } });
-      if (item.lead_id && status !== 'Pending') await crmMutation('PATCH', { table: 'leads', id: item.lead_id, data: { next_follow_up: null } });
+      if (item.lead_id) await syncLeadNextFollowup(item.lead_id);
       await load();
     } catch (error) { alert('فشل تحديث المتابعة: ' + error.message); }
     finally { setBusy(false); }
@@ -75,7 +84,7 @@ export default function FollowupsPanel({ currentUser, userRole, leads = [] }) {
     setBusy(true);
     try {
       await crmMutation('PATCH', { table: 'followups', id: item.id, data: { followup_date: next.toISOString(), status: 'Pending' } });
-      if (item.lead_id) await crmMutation('PATCH', { table: 'leads', id: item.lead_id, data: { next_follow_up: next.toISOString() } });
+      if (item.lead_id) await syncLeadNextFollowup(item.lead_id);
       await load();
     } catch (error) { alert('فشل تأجيل المتابعة: ' + error.message); }
     finally { setBusy(false); }
