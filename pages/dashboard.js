@@ -5,6 +5,7 @@ import OpportunityPipeline from '../components/OpportunityPipeline';
 import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
+import AutomationPanel from '../components/AutomationPanel';
 import FollowupsPanel from '../components/FollowupsPanel';
 import LeadCard from '../components/LeadCard';
 import DailyBrief from '../components/DailyBrief';
@@ -74,6 +75,7 @@ export default function Dashboard() {
     leaderboard: 'leaderboard',
     operations: 'operations',
     reports: 'reports',
+    automation: 'automation',
     audit: 'audit',
     team: 'team'
   };
@@ -777,6 +779,7 @@ export default function Dashboard() {
     ['campaigns', PERMISSIONS.CAMPAIGNS_VIEW],
     ['operations', PERMISSIONS.DEALS_VIEW],
     ['reports', PERMISSIONS.REPORTS_VIEW],
+    ['automation', PERMISSIONS.AUTOMATION_VIEW],
     ['leaderboard', PERMISSIONS.REPORTS_VIEW],
     ['audit', PERMISSIONS.AUDIT_VIEW],
     ['team', PERMISSIONS.TEAMS_VIEW]
@@ -939,6 +942,10 @@ export default function Dashboard() {
 
         {activeTab === 'reports' && can(userRole, PERMISSIONS.REPORTS_VIEW) && (
           <ReportsPanel leads={leads} tasks={tasks} userRole={userRole} />
+        )}
+
+        {activeTab === 'automation' && can(userRole, PERMISSIONS.AUTOMATION_VIEW) && (
+          <AutomationPanel userRole={userRole} />
         )}
 
         {activeTab === 'list' && (
