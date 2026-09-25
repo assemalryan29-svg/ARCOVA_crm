@@ -17,7 +17,7 @@ const checks = [
   ['dashboard supports temperature filter', /leadTemperatureFilter/],
   ['dashboard supports assignee filter', /leadAssigneeFilter/],
   ['saved views persist filters', /filters,/],
-  ['saved views delete through protected gateway', /mutate\('DELETE'/]
+  ['saved views delete through protected gateway', /await mutate\('DELETE', \{\}, selected\)/]
 ];
 
 const sources = { gateway, permissions, dashboard, component };
@@ -25,8 +25,7 @@ const failures = [];
 
 for (const [name, pattern] of checks) {
   const source =
-    name.startsWith('saved_views') && !name.includes('persist') && !name.includes('delete') ? gateway :
-    name.includes('gateway') ? gateway :
+    name.includes('gateway') && !name.includes('delete') ? gateway :
     name.includes('client') ? permissions :
     name.startsWith('dashboard') ? dashboard :
     component;
