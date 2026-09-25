@@ -60,6 +60,8 @@ export default function Dashboard() {
   const [followups, setFollowups] = useState([]);
   const [selectedFolderFilter, setSelectedFolderFilter] = useState('');
   const [selectedCampaignFilter, setSelectedCampaignFilter] = useState('');
+  const [selectedAssigneeFilter, setSelectedAssigneeFilter] = useState('');
+  const [selectedTemperatureFilter, setSelectedTemperatureFilter] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 
@@ -135,6 +137,12 @@ export default function Dashboard() {
     { value: 'Meeting Set', label: '📅 تم تحديد موعد' },
     { value: 'Closed Won', label: '💰 تم التعاقد' },
     { value: 'Lost', label: '❌ غير مهتم' }
+  ];
+
+  const temperatureOptions = [
+    { value: 'Hot', label: '🔥 ساخن' },
+    { value: 'Warm', label: '🟡 دافيء' },
+    { value: 'Cold', label: '❄️ بارد' }
   ];
 
   useEffect(() => {
@@ -537,6 +545,19 @@ export default function Dashboard() {
     }
   };
 
+  const handleUpdateLeadTemperature = async (leadId, newTemperature) => {
+    if (!can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
+    const normalizedTemperature = ['Hot', 'Warm', 'Cold'].includes(newTemperature) ? newTemperature : 'Warm';
+    const { error } = await crmMutation('PATCH', 'leads', { temperature: normalizedTemperature }, leadId);
+    if (error) {
+      alert('فشل تحديث درجة حرارة العميل: ' + error.message);
+      return;
+    }
+    setLeads(prevLeads => prevLeads.map(l => l.id === leadId ? { ...l, temperature: normalizedTemperature } : l));
+    if (selectedLead?.id === leadId) setSelectedLead(prev => ({ ...prev, temperature: normalizedTemperature }));
+    await crmMutation('POST', 'lead_logs', { lead_id: leadId, user_email: currentUser.email, action_type: 'Temperature Change', content: `تغيير درجة حرارة العميل إلى: ${normalizedTemperature}` });
+  };
+
   const handleSaveLeadExtendedDetails = async (e) => {
     e.preventDefault();
     if (!selectedLead || !can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
@@ -704,7 +725,7 @@ export default function Dashboard() {
   };
 
   const handleArchiveLead = async (lead = selectedLead) => {
-    if (!lead || !can(userRole, PERMISSIONS.LEADS_DELETE)) return;
+    if (!lead || !can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
     const confirmed = window.confirm('هل تريد أرشفة العميل "' + (lead.name || 'بدون اسم') + '"؟ سيختفي من القائمة الحالية ويمكن الاحتفاظ به في قاعدة البيانات.');
     if (!confirmed) return;
 
@@ -744,6 +765,8 @@ export default function Dashboard() {
   const filteredLeads = leads.filter(l => {
     const matchesSearch = (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.phone || '').includes(searchQuery);
     const matchesFolder = selectedFolderFilter ? l.folder === selectedFolderFilter : true;
+    const matchesAssignee = selectedAssigneeFilter ? l.assigned_to === selectedAssigneeFilter : true;
+    const matchesTemperature = selectedTemperatureFilter ? (l.temperature || 'Warm') === selectedTemperatureFilter : true;
     
     // فلترة الماركتنج حسب الحملة/المشروع وإمكانية الرؤية
     let matchesCampaignOrProject = true;
@@ -754,7 +777,7 @@ export default function Dashboard() {
       matchesCampaignOrProject = l.lead_source === 'Marketing' || l.assigned_to === currentUser.id;
     }
 
-    return l.status !== 'Archived' && matchesSearch && matchesFolder && matchesCampaignOrProject;
+    return l.status !== 'Archived' && matchesSearch && matchesFolder && matchesAssignee && matchesTemperature && matchesCampaignOrProject;
   });
 
   const todayStr = (() => { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; })();
@@ -973,7 +996,29 @@ export default function Dashboard() {
                   </button>
                 )}
 
-                {/* فلتر حملة الماركتنج والمشروع */}
+                 {canManageTeam(userRole) && (
+                   <select
+                     value={selectedAssigneeFilter}
+                     onChange={(e) => setSelectedAssigneeFilter(e.target.value)}
+                     style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#0f766e', borderRadius: '6px', fontSize: '0.85rem' }}
+                   >
+                     <option value="">👤 كل المسؤولين</option>
+                     {teamMembers.filter((m) => m.active !== false).map((m) => (
+                       <option key={m.id} value={m.id}>👤 {m.full_name || m.email}</option>
+                     ))}
+                   </select>
+                 )}
+
+                 <select
+                   value={selectedTemperatureFilter}
+                   onChange={(e) => setSelectedTemperatureFilter(e.target.value)}
+                   style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#b45309', borderRadius: '6px', fontSize: '0.85rem' }}
+                 >
+                   <option value="">🌡️ كل درجات الحرارة</option>
+                   {temperatureOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                 </select>
+
+                 {/* فلتر حملة الماركتنج والمشروع */}
                 <select 
                   value={selectedCampaignFilter} 
                   onChange={(e) => setSelectedCampaignFilter(e.target.value)}
@@ -1021,11 +1066,13 @@ export default function Dashboard() {
                   folders={folders}
                   teamMembers={teamMembers}
                   canUpdate={can(userRole, PERMISSIONS.LEADS_UPDATE)}
-                  canDelete={can(userRole, PERMISSIONS.LEADS_DELETE)}
+                  canArchive={can(userRole, PERMISSIONS.LEADS_UPDATE)}
                   canAssign={canManageTeam(userRole)}
                   statusOptions={statusOptions}
+                   temperatureOptions={temperatureOptions}
                   onOpen={handleOpenLeadDetails}
                   onStatusChange={handleUpdateLeadStatus}
+                   onTemperatureChange={handleUpdateLeadTemperature}
                   onFolderChange={handleLeadCardFolderOrAssignment}
                   onArchive={handleArchiveLead}
                 />
@@ -1045,6 +1092,7 @@ export default function Dashboard() {
                     <th style={{ padding: '0.8rem' }}>المصدر / المجلد</th>
                     <th style={{ padding: '0.8rem' }}>الميزانية والمنطقة</th>
                     <th style={{ padding: '0.8rem' }}>الحالة</th>
+                           <th style={{ padding: '0.8rem' }}>الحرارة</th>
                     <th style={{ padding: '0.8rem' }}>الموعد القادم</th>
                     <th style={{ padding: '0.8rem' }}>المسؤول</th>
                     <th style={{ padding: '0.8rem' }}>الإجراء</th>
@@ -1078,6 +1126,11 @@ export default function Dashboard() {
                           {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                       </td>
+                       <td style={{ padding: '0.8rem' }}>
+                         <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={lead.temperature || 'Warm'} onChange={(e) => handleUpdateLeadTemperature(lead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: '#b45309', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
+                           {temperatureOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                         </select>
+                       </td>
                       <td style={{ padding: '0.8rem', color: lead.next_follow_up ? '#34d399' : '#806f56', fontSize: '0.8rem' }}>
                         {lead.next_follow_up ? new Date(lead.next_follow_up).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'غير محدد'}
                       </td>
@@ -1095,7 +1148,7 @@ export default function Dashboard() {
                       </td>
                       <td style={{ padding: '0.8rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                         <button onClick={() => handleOpenLeadDetails(lead)} title="تفاصيل وفيدباك" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>التفاصيل</button>
-                        {can(userRole, PERMISSIONS.LEADS_DELETE) && (
+                        {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
                           <button type="button" onClick={() => handleArchiveLead(lead)} title="أرشفة العميل" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#fff7f2', color: '#a7352b', border: '1px solid #d9a07a', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>🗑️</button>
                         )}
                         <a href={`/customer360?lead_id=${encodeURIComponent(lead.id)}`} title="Customer 360" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#f5efe3', color: '#765522', border: '1px solid #d9c5a4', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.75rem' }}>360°</a>
@@ -1330,7 +1383,7 @@ export default function Dashboard() {
               {userRole === 'admin' ? selectedLead.phone : `******${(selectedLead.phone || '').slice(-4)}`} | {selectedLead.email || 'بدون إيميل'}
             </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
-                {can(userRole, PERMISSIONS.LEADS_DELETE) && (
+                {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
                   <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="حذف العميل من القائمة مع الاحتفاظ به في الأرشيف">🗑️ حذف العميل</button>
                 )}
                 <a href={`/customer360?lead_id=${encodeURIComponent(selectedLead.id)}`} style={{ padding:'0.4rem 0.8rem', backgroundColor:'#f5efe3', color:'#765522', border:'1px solid #d9c5a4', borderRadius:'4px', textDecoration:'none', fontSize:'0.8rem', fontWeight:'bold' }}>360° الملف الكامل</a>
@@ -1361,6 +1414,13 @@ export default function Dashboard() {
                   {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
+
+               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                 <span style={{ color: '#b08a4a' }}>درجة الحرارة:</span>
+                 <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.temperature || 'Warm'} onChange={(e) => handleUpdateLeadTemperature(selectedLead.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#fffaf0', color: '#b45309', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
+                   {temperatureOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                 </select>
+               </div>
 
               {/* الماركتنج ممنوع من تعديل المتابعات */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
