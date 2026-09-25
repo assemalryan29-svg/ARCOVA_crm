@@ -46,8 +46,6 @@ export default function CampaignsPanel({ userRole = 'sales', campaigns = [] }) {
   }, [canSeeDeals]);
 
   const rows = useMemo(() => {
-    const leadById = new Map(leads.map((lead) => [lead.id, lead]));
-
     return campaigns.map((campaign) => {
       const directLeads = leads.filter((lead) => lead.campaign_id === campaign.id);
       const fallbackLeads = leads.filter((lead) =>
