@@ -9,6 +9,7 @@ const TABLES = Object.freeze({
   units: { permission: 'units.manage', fields: ['title','type','price','status','project_id','unit_number','area'] },
   tasks: { permission: 'tasks.manage', fields: ['user_id','title','is_completed','lead_id','due_date','description','status','created_by'] },
   campaigns: { permission: 'campaigns.manage', fields: ['name','platform','budget','start_date','end_date','status'] },
+  automation_rules: { permission: 'automation.manage', fields: ['rule_key','name_ar','description','trigger_event','conditions','action_type','action_config','is_active','updated_at'] },
   lead_folders: { permission: 'leads.create', fields: ['name','created_by','active'] },
   lead_logs: { permission: 'leads.update', fields: ['lead_id','user_email','action_type','content'] },
   profiles: { permission: 'users.manage', fields: ['full_name','phone','email','manager_id','team_leader_id','team_id','active'] },
