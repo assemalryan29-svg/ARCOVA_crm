@@ -6,6 +6,7 @@ const gateway = fs.readFileSync(path.join(root, 'pages/api/crm/mutate.js'), 'utf
 const permissions = fs.readFileSync(path.join(root, 'lib/permissions.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'pages/dashboard.js'), 'utf8');
 const component = fs.readFileSync(path.join(root, 'components/SavedViewsBar.tsx'), 'utf8');
+const pipeline = fs.readFileSync(path.join(root, 'components/OpportunityPipeline.tsx'), 'utf8');
 
 const checks = [
   ['saved_views exists in mutation gateway', /saved_views: \{ permission: 'views\.manage'/],
@@ -17,7 +18,11 @@ const checks = [
   ['dashboard supports temperature filter', /leadTemperatureFilter/],
   ['dashboard supports assignee filter', /leadAssigneeFilter/],
   ['saved views persist filters', /filters,/],
-  ['saved views delete through protected gateway', /await mutate\('DELETE', \{\}, selected\)/]
+  ['saved views delete through protected gateway', /await mutate\('DELETE', \{\}, selected\)/],
+  ['pipeline uses saved views', /module='pipeline'/],
+  ['inventory uses saved views', /module="projects"/],
+  ['pipeline saves searchable filter state', /pipelineQuery|pipelineStage|pipelineProject/],
+  ['inventory saves searchable filter state', /inventorySavedFilters/],
 ];
 
 const sources = { gateway, permissions, dashboard, component };
@@ -28,6 +33,7 @@ for (const [name, pattern] of checks) {
     name.includes('gateway') && !name.includes('delete') ? gateway :
     name.includes('client') ? permissions :
     name.startsWith('dashboard') ? dashboard :
+    name.startsWith('pipeline') ? pipeline :
     component;
   if (!pattern.test(source)) failures.push(name);
 }
