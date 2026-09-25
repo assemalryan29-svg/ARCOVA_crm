@@ -9,7 +9,8 @@
     "test:authz": "node scripts/verify-permission-matrix.mjs",
     "test:crud-guardrails": "node scripts/verify-crud-guardrails.mjs",
     "test:architecture": "node scripts/verify-architecture.mjs",
-    "test:phase4": "node scripts/verify-phase4-final-control.mjs"
+    "test:phase4": "node scripts/verify-phase4-final-control.mjs",
+    "test:sales": "node scripts/verify-sales-workflow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
