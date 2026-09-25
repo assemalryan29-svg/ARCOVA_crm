@@ -112,8 +112,10 @@ export default function Dashboard() {
     budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: '', campaign_id: ''
   });
 
-  const [newProjectData, setNewProjectData] = useState({ name: '', location: '', description: '' });
-  const [newUnitData, setNewUnitData] = useState({ project_id: '', unit_number: '', type: 'شقة', area: '', price: '', status: 'Available' });
+  const [newProjectData, setNewProjectData] = useState({ name: '', location: '', project_type: '', delivery: '', description: '' });
+  const [newUnitData, setNewUnitData] = useState({ project_id: '', unit_number: '', title: '', type: 'شقة', area: '', price: '', status: 'Available' });
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [editingUnitId, setEditingUnitId] = useState(null);
   const [newTaskData, setNewTaskData] = useState({ title: '', lead_id: '', due_date: '', description: '' });
   const [newCampaignData, setNewCampaignData] = useState({ name: '', platform: '', budget: '', status: 'Active' });
   
@@ -346,6 +348,16 @@ export default function Dashboard() {
     } catch (err) { alert('تعذر الاتصال بالخادم.'); }
   };
 
+  const resetProjectForm = () => {
+    setEditingProjectId(null);
+    setNewProjectData({ name: '', location: '', project_type: '', delivery: '', description: '' });
+  };
+
+  const resetUnitForm = () => {
+    setEditingUnitId(null);
+    setNewUnitData({ project_id: '', unit_number: '', title: '', type: 'شقة', area: '', price: '', status: 'Available' });
+  };
+
   const handleCreateProject = async (e) => {
     e.preventDefault();
     if (!newProjectData.name?.trim() || !can(userRole, PERMISSIONS.PROJECTS_MANAGE)) return;
@@ -356,8 +368,17 @@ export default function Dashboard() {
       delivery: newProjectData.delivery?.trim() || null,
       description: newProjectData.description?.trim() || null
     };
-    const { error } = await crmMutation('POST', 'projects', payload);
-    if (!error) { setShowProjectModal(false); setNewProjectData({ name: '', location: '', project_type: '', delivery: '', description: '' }); fetchData(); alert('تم إضافة المشروع'); }
+    const { error } = editingProjectId
+      ? await crmMutation('PATCH', 'projects', payload, editingProjectId)
+      : await crmMutation('POST', 'projects', payload);
+    if (!error) {
+      setShowProjectModal(false);
+      resetProjectForm();
+      await fetchData();
+      alert(editingProjectId ? 'تم تحديث بيانات المشروع' : 'تم إضافة المشروع');
+    } else {
+      alert('تعذر حفظ المشروع: ' + error.message);
+    }
   };
 
   const handleCreateUnit = async (e) => {
@@ -370,10 +391,76 @@ export default function Dashboard() {
       type: newUnitData.type?.trim() || 'شقة',
       area: newUnitData.area ? Number(newUnitData.area) : null,
       price: newUnitData.price ? Number(newUnitData.price) : null,
-      status: 'Available'
+      ...(editingUnitId ? {} : { status: 'Available' })
     };
-    const { error } = await crmMutation('POST', 'units', payload);
-    if (!error) { setShowUnitModal(false); setNewUnitData({ project_id: '', unit_number: '', title: '', type: 'شقة', area: '', price: '', status: 'Available' }); fetchData(); alert('تم إضافة الوحدة'); }
+    const { error } = editingUnitId
+      ? await crmMutation('PATCH', 'units', payload, editingUnitId)
+      : await crmMutation('POST', 'units', payload);
+    if (!error) {
+      setShowUnitModal(false);
+      resetUnitForm();
+      await fetchData();
+      alert(editingUnitId ? 'تم تحديث بيانات الوحدة' : 'تم إضافة الوحدة');
+    } else {
+      alert('تعذر حفظ الوحدة: ' + error.message);
+    }
+  };
+
+  const startEditProject = (project) => {
+    setEditingProjectId(project.id);
+    setNewProjectData({
+      name: project.name || '',
+      location: project.location || '',
+      project_type: project.project_type || '',
+      delivery: project.delivery || '',
+      description: project.description || ''
+    });
+    setShowProjectModal(true);
+  };
+
+  const startEditUnit = (unit) => {
+    setEditingUnitId(unit.id);
+    setNewUnitData({
+      project_id: unit.project_id || '',
+      unit_number: unit.unit_number || '',
+      title: unit.title || '',
+      type: unit.type || 'شقة',
+      area: unit.area ?? '',
+      price: unit.price ?? '',
+      status: unit.status || 'Available'
+    });
+    setShowUnitModal(true);
+  };
+
+  const handleDeleteProject = async (project) => {
+    if (!can(userRole, PERMISSIONS.PROJECTS_MANAGE)) return;
+    const projectUnits = units.filter((unit) => unit.project_id === project.id);
+    if (projectUnits.length) {
+      alert('لا يمكن حذف المشروع قبل نقل/حذف الوحدات التابعة له (' + projectUnits.length + ' وحدة).');
+      return;
+    }
+    if (!window.confirm('حذف المشروع "' + project.name + '"؟')) return;
+    const { error } = await crmMutation('DELETE', 'projects', {}, project.id);
+    if (error) {
+      alert('تعذر حذف المشروع: توجد سجلات مرتبطة به أو لا توجد صلاحية.');
+      return;
+    }
+    await fetchData();
+  };
+
+  const handleDeleteUnit = async (unit) => {
+    if (!can(userRole, PERMISSIONS.UNITS_MANAGE)) return;
+    if ((unit.status || 'Available') !== 'Available') {
+      alert('لا يمكن حذف وحدة محجوزة أو مباعة. استخدم الـworkflow التشغيلي أولاً.');
+      return;
+    }
+    if (!window.confirm('حذف الوحدة "' + (unit.unit_number || unit.title || 'بدون رقم') + '"؟')) return;
+    const { error } = await crmMutation('DELETE', 'units', {}, unit.id);
+    if (error) {
+      alert('تعذر حذف الوحدة: قد تكون مرتبطة بحجز/صفقة أو بسجلات تشغيلية.');
+      return;
+    }
+    await fetchData();
   };
 
   const handleCreateTask = async (e) => {
@@ -1268,10 +1355,10 @@ export default function Dashboard() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
-                  <button onClick={() => setShowProjectModal(true)} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#d9c5a4', color: '#765522', border: '1px solid #b08a4a', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مشروع</button>
+                  <button onClick={() => { resetProjectForm(); setShowProjectModal(true); }} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#d9c5a4', color: '#765522', border: '1px solid #b08a4a', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مشروع</button>
                 )}
                 {can(userRole, PERMISSIONS.UNITS_MANAGE) && (
-                  <button onClick={() => setShowUnitModal(true)} disabled={!projects.length} style={{ padding: '0.5rem 0.9rem', backgroundColor: projects.length ? '#b08a4a' : '#b8aa93', color: '#fffaf0', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: projects.length ? 'pointer' : 'not-allowed', fontSize: '0.8rem' }}>
+                  <button onClick={() => { resetUnitForm(); setShowUnitModal(true); }} disabled={!projects.length} style={{ padding: '0.5rem 0.9rem', backgroundColor: projects.length ? '#b08a4a' : '#b8aa93', color: '#fffaf0', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: projects.length ? 'pointer' : 'not-allowed', fontSize: '0.8rem' }}>
                     + إضافة وحدة
                   </button>
                 )}
@@ -1308,6 +1395,14 @@ export default function Dashboard() {
                     <div style={{ color: '#fffaf0', fontWeight: 700 }}>{project.name}</div>
                     <div style={{ color: '#b08a4a', fontSize: '0.75rem', marginTop: 3 }}>{project.location || 'الموقع غير محدد'}</div>
                     <div style={{ color: '#806f56', fontSize: '0.68rem', marginTop: 6 }}>{project.project_type || 'مشروع عقاري'} · {project.delivery || 'موعد التسليم غير محدد'}</div>
+                    <div style={{ display: 'flex', gap: '0.35rem', marginTop: 8, flexWrap: 'wrap' }}>
+                      {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
+                        <>
+                          <button type="button" onClick={() => startEditProject(project)} style={{ padding: '0.28rem 0.5rem', background: '#fffaf0', color: '#765522', border: '1px solid #d9c5a4', borderRadius: 5, fontSize: '0.64rem', cursor: 'pointer' }}>تعديل</button>
+                          <button type="button" onClick={() => handleDeleteProject(project)} style={{ padding: '0.28rem 0.5rem', background: '#fff7f2', color: '#a7352b', border: '1px solid #e2c0aa', borderRadius: 5, fontSize: '0.64rem', cursor: 'pointer' }}>حذف</button>
+                        </>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', gap: '0.8rem', marginTop: 8, fontSize: '0.68rem' }}>
                       <span style={{ color: '#34d399' }}>متاحة {available}</span>
                       <span style={{ color: '#f59e0b' }}>محجوزة {reserved}</span>
@@ -1347,6 +1442,7 @@ export default function Dashboard() {
                     <th style={{ padding: '0.75rem' }}>المساحة</th>
                     <th style={{ padding: '0.75rem' }}>السعر</th>
                     <th style={{ padding: '0.75rem' }}>الحالة</th>
+                    <th style={{ padding: '0.75rem' }}>إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1366,11 +1462,19 @@ export default function Dashboard() {
                             {statusLabel}
                           </span>
                         </td>
+                        <td style={{ padding: '0.75rem' }}>
+                          {can(userRole, PERMISSIONS.UNITS_MANAGE) && (
+                            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                              <button type="button" onClick={() => startEditUnit(unit)} style={{ padding: '0.25rem 0.45rem', background: '#fffaf0', color: '#765522', border: '1px solid #d9c5a4', borderRadius: 5, fontSize: '0.65rem', cursor: 'pointer' }}>تعديل</button>
+                              {status === 'Available' && <button type="button" onClick={() => handleDeleteUnit(unit)} style={{ padding: '0.25rem 0.45rem', background: '#fff7f2', color: '#a7352b', border: '1px solid #e2c0aa', borderRadius: 5, fontSize: '0.65rem', cursor: 'pointer' }}>حذف</button>}
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
                   {!inventoryFilteredUnits.length && (
-                    <tr><td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: '#806f56' }}>لا توجد وحدات مطابقة للفلاتر الحالية.</td></tr>
+                    <tr><td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#806f56' }}>لا توجد وحدات مطابقة للفلاتر الحالية.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1687,15 +1791,15 @@ export default function Dashboard() {
       {showProjectModal && can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#fffaf0', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #b08a4a' }}>
-            <h3 style={{ color: '#b08a4a', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة مشروع</h3>
+            <h3 style={{ color: '#b08a4a', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>{editingProjectId ? 'تعديل المشروع' : 'إضافة مشروع'}</h3>
             <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
               <input type="text" placeholder="اسم المشروع" required value={newProjectData.name} onChange={(e) => setNewProjectData({...newProjectData, name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="text" placeholder="الموقع" value={newProjectData.location} onChange={(e) => setNewProjectData({...newProjectData, location: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="text" placeholder="نوع المشروع" value={newProjectData.project_type || ''} onChange={(e) => setNewProjectData({...newProjectData, project_type: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="text" placeholder="التسليم" value={newProjectData.delivery || ''} onChange={(e) => setNewProjectData({...newProjectData, delivery: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <textarea placeholder="وصف المشروع" value={newProjectData.description || ''} onChange={(e) => setNewProjectData({...newProjectData, description: e.target.value})} style={{ padding: '0.5rem', minHeight: 70, backgroundColor: '#f5efe3', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
-              <button type="button" onClick={() => setShowProjectModal(false)} style={{ padding: '0.5rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{editingProjectId ? 'حفظ التعديلات' : 'حفظ المشروع'}</button>
+              <button type="button" onClick={() => { setShowProjectModal(false); resetProjectForm(); }} style={{ padding: '0.5rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
             </form>
           </div>
         </div>
@@ -1705,9 +1809,9 @@ export default function Dashboard() {
       {showUnitModal && can(userRole, PERMISSIONS.UNITS_MANAGE) && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div style={{ backgroundColor: '#fffaf0', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #b08a4a' }}>
-            <h3 style={{ color: '#b08a4a', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إضافة وحدة</h3>
+            <h3 style={{ color: '#b08a4a', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>{editingUnitId ? 'تعديل الوحدة' : 'إضافة وحدة'}</h3>
             <form onSubmit={handleCreateUnit} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
-              <select required value={newUnitData.project_id} onChange={(e) => setNewUnitData({...newUnitData, project_id: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }}>
+              <select required value={newUnitData.project_id} onChange={(e) => setNewUnitData({...newUnitData, project_id: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }}>
                 <option value="">اختر المشروع...</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -1718,8 +1822,9 @@ export default function Dashboard() {
               </select>
               <input type="number" placeholder="المساحة" value={newUnitData.area} onChange={(e) => setNewUnitData({...newUnitData, area: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="number" placeholder="السعر" value={newUnitData.price} onChange={(e) => setNewUnitData({...newUnitData, price: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
-              <button type="button" onClick={() => setShowUnitModal(false)} style={{ padding: '0.5rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
+              <div style={{ color: '#806f56', fontSize: '0.68rem' }}>حالة الوحدة لا يتم تعديلها يدويًا؛ الحجز والبيع يمران عبر الـworkflow المحمي.</div>
+              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{editingUnitId ? 'حفظ التعديلات' : 'حفظ الوحدة'}</button>
+              <button type="button" onClick={() => { setShowUnitModal(false); resetUnitForm(); }} style={{ padding: '0.5rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
             </form>
           </div>
         </div>
