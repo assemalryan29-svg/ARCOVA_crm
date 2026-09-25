@@ -7,7 +7,8 @@ const TABLES = [
   ['appointments','scheduled_at'],
   ['tasks','due_date'],
   ['reservations','created_at'],
-  ['deals','created_at']
+  ['deals','created_at'],
+  ['opportunities','updated_at']
 ];
 
 function db(token) {
@@ -38,7 +39,9 @@ export default async function handler(req, res) {
     return [table, error ? [] : (data || [])];
   }));
 
-  const activities = results.flatMap(([table, rows]) => rows.map((row) => ({ ...row, entity_type: table })))
+  const paymentResult = await client.from('deal_payments').select('*, deals!inner(lead_id)').eq('deals.lead_id', leadId).order('due_date', { ascending: false });
+
+  const activities = results.flatMap(([table, rows]) => rows.map((row) => ({ ...row, entity_type: table }))).concat((paymentResult.data || []).map((row) => ({ ...row, entity_type: 'deal_payments' })))
     .sort((a,b) => new Date(b.created_at || b.followup_date || b.call_at || b.scheduled_at || b.due_date).getTime() - new Date(a.created_at || a.followup_date || a.call_at || a.scheduled_at || a.due_date).getTime());
 
   return res.status(200).json({
@@ -49,6 +52,8 @@ export default async function handler(req, res) {
     appointments: results.find(([t]) => t === 'appointments')?.[1] || [],
     tasks: results.find(([t]) => t === 'tasks')?.[1] || [],
     reservations: results.find(([t]) => t === 'reservations')?.[1] || [],
-    deals: results.find(([t]) => t === 'deals')?.[1] || []
+    deals: results.find(([t]) => t === 'deals')?.[1] || [],
+    opportunities: results.find(([t]) => t === 'opportunities')?.[1] || [],
+    deal_payments: paymentResult.error ? [] : (paymentResult.data || [])
   });
 }

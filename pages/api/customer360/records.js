@@ -99,6 +99,9 @@ export default async function handler(req, res) {
   if (!auth.allowed) return res.status(auth.status).json({ error: auth.error });
 
   if (req.method === 'DELETE') {
+    if (['reservations', 'deals', 'deal_payments'].includes(table)) {
+      return res.status(400).json({ error: 'Use the protected sales/finance workflow for this record type.' });
+    }
     let query = supabase.from(table).delete().eq('id', id);
     if (leadId && ['calls', 'followups', 'appointments', 'reservations', 'deals'].includes(table)) {
       query = query.eq('lead_id', leadId);
@@ -118,6 +121,20 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
+    if (table === 'deal_payments' && req.body?.patch?.status === 'Paid') {
+      const { data, error } = await supabase.rpc('record_deal_payment', {
+        p_payment_id: id,
+        p_paid_at: req.body?.patch?.paid_at ? new Date(req.body.patch.paid_at).toISOString() : new Date().toISOString(),
+        p_notes: req.body?.patch?.notes || null
+      });
+      if (error) return res.status(400).json({ error: error.message });
+      return res.status(200).json({ data });
+    }
+
+    if (['reservations', 'deals', 'deal_payments'].includes(table)) {
+      return res.status(400).json({ error: 'Use the protected sales/finance workflow for this record type.' });
+    }
+
     const patch = pick(req.body?.patch, UPDATE_FIELDS[table]);
     if (!Object.keys(patch).length) return res.status(400).json({ error: 'No editable fields supplied' });
 
@@ -138,7 +155,49 @@ export default async function handler(req, res) {
     return res.status(200).json({ data });
   }
 
-  const input = pick(req.body?.record ?? req.body?.patch, INSERT_FIELDS[table]);
+  const rawInput = req.body?.record ?? req.body?.patch ?? {};
+
+  if (table === 'reservations') {
+    const { data, error } = await supabase.rpc('reserve_unit_atomic', {
+      p_lead_id: leadId || rawInput.lead_id || null,
+      p_unit_id: rawInput.unit_id || null,
+      p_reservation_amount: Number(rawInput.reservation_amount || 0),
+      p_contract_value: rawInput.contract_value === '' || rawInput.contract_value == null ? null : Number(rawInput.contract_value),
+      p_expires_at: rawInput.expires_at ? new Date(rawInput.expires_at).toISOString() : null,
+      p_notes: rawInput.notes || null
+    });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json({ data, workflow: 'reserve_unit_atomic' });
+  }
+
+  if (table === 'deals') {
+    if (!rawInput.reservation_id) {
+      return res.status(400).json({ error: 'A reservation is required before creating a deal.' });
+    }
+    const { data, error } = await supabase.rpc('confirm_reservation_as_deal', {
+      p_reservation_id: rawInput.reservation_id,
+      p_deal_value: Number(rawInput.deal_value || 0),
+      p_down_payment: Number(rawInput.down_payment || 0),
+      p_installment_months: rawInput.installment_months ? Number(rawInput.installment_months) : null,
+      p_payment_frequency: rawInput.payment_frequency || 'monthly',
+      p_contract_date: rawInput.contract_date || new Date().toISOString().slice(0, 10),
+      p_commission: Number(rawInput.commission || 0),
+      p_notes: rawInput.notes || null
+    });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json({ data, workflow: 'confirm_reservation_as_deal' });
+  }
+
+  if (table === 'deal_payments') {
+    const { data, error } = await supabase.rpc('generate_deal_payment_schedule', {
+      p_deal_id: rawInput.deal_id || null,
+      p_first_due_date: rawInput.first_due_date || new Date().toISOString().slice(0, 10)
+    });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json({ data: { generated_installments: Number(data || 0) }, workflow: 'generate_deal_payment_schedule' });
+  }
+
+  const input = pick(rawInput, INSERT_FIELDS[table]);
   if (['calls', 'followups', 'appointments'].includes(table)) {
     input.assigned_to = input.assigned_to || userData.user.id;
   }

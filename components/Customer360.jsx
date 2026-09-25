@@ -7,6 +7,8 @@ const labels = {
   tasks: 'مهمة',
   reservations: 'حجز',
   deals: 'صفقة',
+  opportunities: 'فرصة',
+  deal_payments: 'دفعة',
   lead_activities: 'نشاط'
 };
 
@@ -44,7 +46,9 @@ export default function Customer360({ leadId }) {
     ['المتابعات', data.followups.length],
     ['المكالمات', data.calls.length],
     ['المواعيد', data.appointments.length],
-    ['الصفقات', data.deals.length]
+    ['الصفقات', data.deals.length],
+    ['الفرص', data.opportunities?.length || 0],
+    ['الدفعات', data.deal_payments?.length || 0]
   ];
 
   return (

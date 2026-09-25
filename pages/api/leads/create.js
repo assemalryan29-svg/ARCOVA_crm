@@ -183,6 +183,7 @@ export default async function handler(req, res) {
       preferred_area: text(body.preferred_area, 200) || null,
       external_source: externalSource,
       external_lead_id: externalLeadId,
+      campaign_id: text(body.campaign_id, 100) || null,
     };
 
     // User-originated writes go through the caller token so Supabase RLS remains

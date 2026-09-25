@@ -141,6 +141,7 @@ export default async function handler(req, res) {
     preferred_location: text(body.preferred_location, 200) || null,
     desired_unit_type: text(body.desired_unit_type, 150) || null,
     folder: text(body.folder, 150) || null,
+    campaign_id: text(body.campaign_id, 100) || null,
     ...(status !== undefined ? { status } : {}),
     ...(temperature !== undefined ? { temperature } : {}),
   };
@@ -151,7 +152,7 @@ export default async function handler(req, res) {
     .from('leads')
     .update(updates)
     .eq('id', id)
-    .select('id,name,phone,email,lead_source,budget,preferred_area,preferred_location,desired_unit_type,folder,status,assigned_to,updated_at')
+    .select('id,name,phone,email,lead_source,budget,preferred_area,preferred_location,desired_unit_type,folder,campaign_id,status,assigned_to,updated_at')
     .maybeSingle();
 
   if (error) return res.status(400).json({ error: error.message });
