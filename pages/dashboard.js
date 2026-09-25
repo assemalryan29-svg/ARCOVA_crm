@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
-import PipelineBoard from '../components/PipelineBoard';
+import OpportunityPipeline from '../components/OpportunityPipeline';
 import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
@@ -930,7 +930,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'pipeline' && can(userRole, PERMISSIONS.PIPELINE_VIEW) && (
-          <PipelineBoard leads={filteredLeads} statusOptions={statusOptions} onStatusChange={handleUpdateLeadStatus} onOpenLead={handleOpenLeadDetails} />
+          <OpportunityPipeline leads={filteredLeads} projects={projects} userRole={userRole} />
         )}
 
         {activeTab === 'operations' && can(userRole, PERMISSIONS.DEALS_VIEW) && (
