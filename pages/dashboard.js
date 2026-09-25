@@ -1464,6 +1464,13 @@ export default function Dashboard() {
                 <option value="تاون هاوس">تاون هاوس</option>
                 <option value="تجاري / إداري">تجاري / إداري</option>
               </select>
+
+              {can(userRole, PERMISSIONS.CAMPAIGNS_VIEW) && (
+                <select disabled={!can(userRole, PERMISSIONS.LEADS_UPDATE)} value={selectedLead.campaign_id || ''} onChange={(e) => setSelectedLead({...selectedLead, campaign_id: e.target.value || null})} style={{ padding: '0.4rem', backgroundColor: '#fffaf0', color: '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
+                  <option value="">بدون حملة</option>
+                  {campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+                </select>
+              )}
               {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
                 <button type="submit" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#34d399', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem', alignSelf: 'flex-start' }}>حفظ التعديلات</button>
               )}
