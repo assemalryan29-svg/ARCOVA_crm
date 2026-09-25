@@ -50,6 +50,20 @@ const input = {
   minWidth: 0
 };
 
+function googleCalendarUrl(appointment) {
+  const start = appointment.scheduled_at ? new Date(appointment.scheduled_at) : null;
+  if (!start || Number.isNaN(start.getTime())) return null;
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const fmt = (date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: 'ARCOVA - ' + (appointment.leads?.name || 'موعد عميل'),
+    dates: fmt(start) + '/' + fmt(end),
+    details: [appointment.type, appointment.notes].filter(Boolean).join(' · ')
+  });
+  return 'https://calendar.google.com/calendar/render?' + params.toString();
+}
+
 export default function OperationsPanel({ currentUser, userRole, leads = [], units = [] }) {
   const [active, setActive] = useState('deals');
   const [deals, setDeals] = useState([]);
@@ -491,11 +505,34 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
             </form>
           )}
           <div style={{ display: 'grid', gap: '0.5rem' }}>
-            {appointments.map((appointment) => (
-              <div key={appointment.id} style={{ ...panel, fontSize: '0.78rem' }}>
-                {appointment.leads?.name || '—'} · {new Date(appointment.scheduled_at).toLocaleString('ar-EG')} · {appointment.status}
-              </div>
-            ))}
+            {appointments.map((appointment) => {
+              const calendarUrl = googleCalendarUrl(appointment);
+              return (
+                <div key={appointment.id} style={{ ...panel, fontSize: '0.78rem' }}>
+                  <div>{appointment.leads?.name || '—'} · {new Date(appointment.scheduled_at).toLocaleString('ar-EG')} · {appointment.status}</div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 7, flexWrap: 'wrap' }}>
+                    {calendarUrl && (
+                      <a
+                        href={calendarUrl}
+                        target='_blank'
+                        rel='noreferrer'
+                        style={{ background: '#fffaf0', color: '#765522', border: '1px solid #d9c5a4', borderRadius: 5, padding: '0.3rem 0.5rem', textDecoration: 'none', fontWeight: 700 }}
+                      >
+                        إضافة إلى Google Calendar
+                      </a>
+                    )}
+                    {appointment.leads?.phone && (
+                      <a
+                        href={'tel:' + String(appointment.leads.phone).replace(/[^0-9+]/g, '')}
+                        style={{ background: '#eaf6ef', color: '#176b4d', borderRadius: 5, padding: '0.3rem 0.5rem', textDecoration: 'none', fontWeight: 700 }}
+                      >
+                        اتصال
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
