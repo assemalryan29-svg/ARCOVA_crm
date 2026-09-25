@@ -110,6 +110,9 @@ export default async function handler(req, res) {
 
     if (action === 'update') {
       const payload = cleanPayload(table, body.data);
+      if (table === 'units' && Object.prototype.hasOwnProperty.call(payload, 'status')) {
+        return res.status(400).json({ error: 'Unit status changes must use the protected reservation/deal workflow.' });
+      }
       result = await writeClient.from(table).update(payload).eq('id', id).select('*').maybeSingle();
     } else {
       result = await writeClient.from(table).delete().eq('id', id).select('id').maybeSingle();
