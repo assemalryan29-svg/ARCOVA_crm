@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { can, PERMISSIONS } from '../lib/permissions';
+import SavedViewsBar from './SavedViewsBar';
 
 const STAGES = [
   { value: 'New', label: '📥 جديد' },
@@ -23,6 +24,9 @@ export default function OpportunityPipeline({ leads = [], projects = [], userRol
   const [form, setForm] = useState({
     lead_id: '', project_id: '', estimated_value: '', probability: 20, expected_close_date: '', notes: ''
   });
+  const [pipelineQuery, setPipelineQuery] = useState('');
+  const [pipelineStage, setPipelineStage] = useState('');
+  const [pipelineProject, setPipelineProject] = useState('');
 
   const allowed = can(userRole, PERMISSIONS.PIPELINE_MANAGE);
 
@@ -37,15 +41,39 @@ export default function OpportunityPipeline({ leads = [], projects = [], userRol
 
   useEffect(() => { load(); }, []);
 
+  const filteredOpportunities = useMemo(() => {
+    const needle = pipelineQuery.trim().toLowerCase();
+    return opportunities.filter((o) => {
+      if (pipelineStage && o.stage !== pipelineStage) return false;
+      if (pipelineProject && o.project_id !== pipelineProject) return false;
+      if (!needle) return true;
+      const hay = [o.leads?.name, o.leads?.phone, o.projects?.name, o.units?.unit_number, o.units?.title]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [opportunities, pipelineQuery, pipelineStage, pipelineProject]);
+
   const grouped = useMemo(() => {
     const result = {};
     STAGES.forEach((s) => { result[s.value] = []; });
-    opportunities.forEach((o) => {
+    filteredOpportunities.forEach((o) => {
       if (!result[o.stage]) result[o.stage] = [];
       result[o.stage].push(o);
     });
     return result;
-  }, [opportunities]);
+  }, [filteredOpportunities]);
+
+  const savedFilters = {
+    query: pipelineQuery,
+    stage: pipelineStage,
+    project: pipelineProject
+  };
+
+  const applySavedFilters = (filters = {}) => {
+    setPipelineQuery(filters.query || '');
+    setPipelineStage(filters.stage || '');
+    setPipelineProject(filters.project || '');
+  };
 
   const createOpportunity = async (e) => {
     e.preventDefault();
@@ -124,6 +152,34 @@ export default function OpportunityPipeline({ leads = [], projects = [], userRol
           <button disabled={busy} type='submit' style={{ background: '#34d399', border: 0, borderRadius: 6, fontWeight: 700 }}>حفظ الفرصة</button>
         </form>
       )}
+
+      <div style={{ display: 'grid', gap: 8, background: '#fffaf0', border: '1px solid #d9c5a4', borderRadius: 9, padding: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 7 }}>
+          <input
+            value={pipelineQuery}
+            onChange={(e) => setPipelineQuery(e.target.value)}
+            placeholder='🔎 عميل / هاتف / مشروع / وحدة'
+            style={input}
+          />
+          <select value={pipelineStage} onChange={(e) => setPipelineStage(e.target.value)} style={input}>
+            <option value=''>كل المراحل</option>
+            {STAGES.map((stage) => <option key={stage.value} value={stage.value}>{stage.label}</option>)}
+          </select>
+          <select value={pipelineProject} onChange={(e) => setPipelineProject(e.target.value)} style={input}>
+            <option value=''>كل المشاريع</option>
+            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          </select>
+        </div>
+        <SavedViewsBar
+          userRole={userRole}
+          module='pipeline'
+          filters={savedFilters}
+          onLoad={applySavedFilters}
+        />
+        <div style={{ color: '#806f56', fontSize: '.68rem' }}>
+          المعروض: {filteredOpportunities.length} من {opportunities.length} فرصة
+        </div>
+      </div>
 
       <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${STAGES.length},minmax(220px,1fr))`, gap: '0.7rem', minWidth: 1540 }}>
