@@ -788,6 +788,13 @@ export default function Dashboard() {
     <div className="arcova-dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#f5efe3', color: '#3f321f', fontFamily: 'sans-serif', direction: 'rtl' }}>
       <Sidebar activeView={activeTab === "list" ? "leads" : activeTab} onNavigate={handleSidebarNavigation} visibleViews={visibleViews} />
       <div className="arcova-dashboard-content" style={{ flex: 1, minWidth: 0, minHeight: '100vh' }}>
+        {can(userRole, PERMISSIONS.AUDIT_VIEW) && (
+          <div style={{ padding: '0.7rem 1rem', background: '#fffaf0', borderBottom: '1px solid #d9c5a4', display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => { window.location.href = '/phase4'; }} style={{ padding: '0.5rem 0.9rem', border: '1px solid #b08a4a', borderRadius: '8px', background: '#d9c5a4', color: '#765522', fontWeight: 800, cursor: 'pointer' }}>
+              🔎 مراجعة Phase 4 — التكرارات المعلقة
+            </button>
+          </div>
+        )}
         <style jsx>{`
           .arcova-mobile-leads { display: none; }
           .arcova-desktop-leads { display: block; }
