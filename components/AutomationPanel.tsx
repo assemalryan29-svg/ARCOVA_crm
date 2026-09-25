@@ -26,15 +26,28 @@ export default function AutomationPanel({ userRole = 'sales' }) {
 
   const toggle = async (rule) => {
     if (!canManage) return;
-    const { error } = await supabase
-      .from('automation_rules')
-      .update({ is_active: !rule.is_active, updated_at: new Date().toISOString() })
-      .eq('id', rule.id);
-    if (error) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('انتهت الجلسة.');
+      const response = await fetch('/api/crm/mutate', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          table: 'automation_rules',
+          id: rule.id,
+          data: { is_active: !rule.is_active, updated_at: new Date().toISOString() }
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'تعذر تحديث القاعدة.');
+      await load();
+    } catch (error) {
       alert('فشل تحديث قاعدة الأتمتة: ' + error.message);
-      return;
     }
-    await load();
   };
 
   if (!canView) {
