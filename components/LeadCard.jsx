@@ -42,11 +42,13 @@ export default function LeadCard({
   folders,
   teamMembers,
   canUpdate,
-  canDelete,
+  canArchive,
   canAssign,
   statusOptions,
+  temperatureOptions,
   onOpen,
   onStatusChange,
+  onTemperatureChange,
   onFolderChange,
   onArchive
 }) {
@@ -129,6 +131,16 @@ export default function LeadCard({
           </select>
         )}
 
+        {canUpdate && (
+          <select
+            value={lead.temperature || 'Warm'}
+            onChange={(event) => onTemperatureChange(lead.id, event.target.value)}
+            style={{ minHeight: 42, border: `1px solid ${COLORS.border}`, borderRadius: 10, background: COLORS.surface, color: COLORS.text, padding: '0 10px', fontWeight: 700 }}
+          >
+            {(temperatureOptions || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        )}
+
         {canUpdate && folders?.length > 0 && (
           <select
             value={lead.folder || ''}
@@ -146,7 +158,7 @@ export default function LeadCard({
           التفاصيل
         </button>
 
-        {canDelete && (
+        {canArchive && (
           <button type="button" onClick={() => onArchive(lead)} style={{ minHeight: 44, border: `1px solid #d9a07a`, borderRadius: 10, background: '#fff6ef', color: COLORS.danger, fontWeight: 800, cursor: 'pointer' }}>
             🗑️ أرشفة
           </button>
