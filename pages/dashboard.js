@@ -6,6 +6,7 @@ import TeamController from '../components/TeamController';
 import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import AutomationPanel from '../components/AutomationPanel';
+import CampaignsPanel from '../components/CampaignsPanel';
 import FollowupsPanel from '../components/FollowupsPanel';
 import LeadCard from '../components/LeadCard';
 import DailyBrief from '../components/DailyBrief';
@@ -103,7 +104,7 @@ export default function Dashboard() {
   
   const [newLeadData, setNewLeadData] = useState({ 
     name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '',
-    budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: ''
+    budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: '', campaign_id: ''
   });
 
   const [newProjectData, setNewProjectData] = useState({ name: '', location: '', description: '' });
@@ -323,7 +324,8 @@ export default function Dashboard() {
           budget: newLeadData.budget ? parseFloat(newLeadData.budget) : null,
           preferred_area: newLeadData.preferred_area,
           desired_unit_type: newLeadData.desired_unit_type,
-          folder: newLeadData.folder || null
+          folder: newLeadData.folder || null,
+          campaign_id: newLeadData.campaign_id || null
         })
       });
 
@@ -334,7 +336,7 @@ export default function Dashboard() {
       }
 
       setShowAddLeadModal(false);
-      setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '', budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: '' });
+      setNewLeadData({ name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '', budget: '', preferred_area: '', desired_unit_type: 'شقة', folder: '', campaign_id: '' });
       fetchData();
     } catch (err) { alert('تعذر الاتصال بالخادم.'); }
   };
@@ -580,7 +582,8 @@ export default function Dashboard() {
           preferred_area: selectedLead.preferred_area,
           preferred_location: selectedLead.preferred_location,
           desired_unit_type: selectedLead.desired_unit_type,
-          folder: selectedLead.folder
+          folder: selectedLead.folder,
+          campaign_id: selectedLead.campaign_id || null
         })
       });
 
@@ -1331,24 +1334,18 @@ export default function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'campaigns' && (
+        {activeTab === 'campaigns' && can(userRole, PERMISSIONS.CAMPAIGNS_VIEW) && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة الحملات التسويقية</h3>
-              {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
-                <button onClick={() => setShowCampaignModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة حملة</button>
+              <div>
+                <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>الحملات والأداء التسويقي</h3>
+                <div style={{ color: '#806f56', fontSize: '.72rem', marginTop: 3 }}>ربط الحملة بالـLead ثم قياس الـOpportunities والـWon Sales والتكلفة.</div>
+              </div>
+              {can(userRole, PERMISSIONS.CAMPAIGNS_MANAGE) && (
+                <button onClick={() => setShowCampaignModal(true)} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة حملة</button>
               )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-              {campaigns.map(camp => (
-                <div key={camp.id} style={{ backgroundColor: '#fffaf0', padding: '1rem', borderRadius: '6px', border: '1px solid #d9c5a4', borderRight: '4px solid #b08a4a' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#fff' }}>{camp.name}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#b08a4a', margin: '0.3rem 0' }}> المنصة: {camp.platform || 'غير محددة'}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#34d399' }}> الميزانية: {camp.budget ? `${Number(camp.budget).toLocaleString()} ج.م` : 'غير محددة'}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#806f56', marginTop: '0.5rem' }}>الحالة: {camp.status}</div>
-                </div>
-              ))}
-            </div>
+            <CampaignsPanel userRole={userRole} campaigns={campaigns} />
           </div>
         )}
 
@@ -1575,6 +1572,13 @@ export default function Dashboard() {
                 <option value="">إضافة إلى مجلد (اختياري)...</option>
                 {folders.map((f, i) => <option key={i} value={f}>{f}</option>)}
               </select>
+
+              {can(userRole, PERMISSIONS.CAMPAIGNS_VIEW) && (
+                <select value={newLeadData.campaign_id} onChange={(e) => setNewLeadData({...newLeadData, campaign_id: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }}>
+                  <option value="">ربط بحملة (اختياري)...</option>
+                  {campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+                </select>
+              )}
 
               {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
                 <select value={newLeadData.assigned_to} onChange={(e) => setNewLeadData({...newLeadData, assigned_to: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }}>
