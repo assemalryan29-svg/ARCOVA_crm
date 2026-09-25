@@ -82,7 +82,11 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Permanent deletion is restricted to Admin.' });
     }
   } else {
-    const permissionKey = PERMISSION_BY_TABLE[table];
+    // Archive is a safe status update, not a destructive delete. The lead's existing RLS update policy
+    // still enforces the caller's permitted ownership/team scope.
+    const permissionKey = mode === 'archive' && table === 'leads'
+      ? 'leads.update'
+      : PERMISSION_BY_TABLE[table];
     if (!permissionKey) return res.status(400).json({ error: 'Delete permission is not configured for this record type.' });
 
     const { data: permission, error: permissionError } = await supabase
