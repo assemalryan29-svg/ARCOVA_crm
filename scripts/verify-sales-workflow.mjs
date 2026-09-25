@@ -9,6 +9,8 @@ const automation = fs.readFileSync(path.join(root, 'components/AutomationPanel.t
 const gateway = fs.readFileSync(path.join(root, 'pages/api/crm/mutate.js'), 'utf8');
 const customer360 = fs.readFileSync(path.join(root, 'pages/api/crm/customer360.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'pages/dashboard.js'), 'utf8');
+const customer360Records = fs.readFileSync(path.join(root, 'pages/api/customer360/records.js'), 'utf8');
+const customer360Page = fs.readFileSync(path.join(root, 'pages/customers/[id].js'), 'utf8');
 
 const checks = [
   ['pipeline uses create_opportunity RPC', /create_opportunity/],
@@ -26,6 +28,13 @@ const checks = [
   ['dashboard exposes automation view', /AutomationPanel/],
   ['dashboard inventory does not expose direct status handler', !/handleUpdateUnitStatus/.test(dashboard)],
   ['gateway blocks direct unit status updates', /Unit status changes must use the protected reservation\/deal workflow/.test(gateway)],
+  ['customer 360 records route reservations through atomic RPC', /reserve_unit_atomic/.test(customer360Records)],
+  ['customer 360 records route deals through protected RPC', /confirm_reservation_as_deal/.test(customer360Records)],
+  ['customer 360 records route payment schedules through protected RPC', /generate_deal_payment_schedule/.test(customer360Records)],
+  ['customer 360 records route payment collection through protected RPC', /record_deal_payment/.test(customer360Records)],
+  ['customer 360 UI converts reservation to deal', /DEAL_FROM_RESERVATION/.test(customer360Page)],
+  ['customer 360 UI generates payment schedule', /PAYMENT_SCHEDULE_GENERATED/.test(customer360Page)],
+  ['customer 360 UI hides generic sensitive record editing', /workflowLocked/.test(customer360Page)],
 ];
 
 const failures = [];
