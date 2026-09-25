@@ -1089,8 +1089,6 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              </div>
-
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button onClick={() => setShowAddLeadModal(true)} style={{ padding: '0.5rem 1rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
                   + تسجيل عميل
