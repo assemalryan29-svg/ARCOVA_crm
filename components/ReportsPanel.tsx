@@ -115,6 +115,55 @@ export default function ReportsPanel({ leads = [], tasks = [], userRole = 'sales
     [opportunities]
   );
 
+  const paidPayments = useMemo(
+    () => payments.filter((p) => p.status === 'Paid').reduce((sum, p) => sum + Number(p.amount || 0), 0),
+    [payments]
+  );
+
+  const scheduledPayments = useMemo(
+    () => payments.filter((p) => p.status !== 'Cancelled').reduce((sum, p) => sum + Number(p.amount || 0), 0),
+    [payments]
+  );
+
+  const collectionRate = scheduledPayments > 0 ? (paidPayments / scheduledPayments) * 100 : 0;
+
+  const next30DaysDue = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 30);
+    return payments
+      .filter((p) => p.status !== 'Paid' && p.status !== 'Cancelled' && p.due_date)
+      .filter((p) => {
+        const d = new Date(p.due_date);
+        return d >= start && d <= end;
+      })
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  }, [payments]);
+
+  const availableUnits = useMemo(
+    () => units.filter((u) => (u.status || 'Available') === 'Available'),
+    [units]
+  );
+
+  const availableInventoryValue = useMemo(
+    () => availableUnits.reduce((sum, u) => sum + Number(u.price || 0), 0),
+    [availableUnits]
+  );
+
+  const wonDealsCount = useMemo(
+    () => deals.filter((d) => d.status === 'Won').length,
+    [deals]
+  );
+
+  const averageWonDeal = wonDealsCount > 0 ? wonValue / wonDealsCount : 0;
+
+  const reservationToDealRate = useMemo(() => {
+    const nonCancelledReservations = reservations.filter((r) => r.status !== 'Cancelled').length;
+    return nonCancelledReservations > 0 ? (wonDealsCount / nonCancelledReservations) * 100 : 0;
+  }, [reservations, wonDealsCount]);
+
+
   const sources = useMemo(
     () => leads.reduce((map, lead) => {
       const key = lead.lead_source || 'Unknown';
@@ -149,10 +198,19 @@ export default function ReportsPanel({ leads = [], tasks = [], userRole = 'sales
       ['Units', units.length],
       ['Deals', deals.length],
       ['Won Deals Value', wonValue],
+      ['Won Deals Count', wonDealsCount],
+      ['Average Won Deal', averageWonDeal],
       ['Reservations Value', reservedValue],
+      ['Reservation to Won Rate', reservationToDealRate.toFixed(1) + '%'],
+      ['Scheduled Payments', scheduledPayments],
+      ['Paid Payments', paidPayments],
+      ['Collection Rate', collectionRate.toFixed(1) + '%'],
+      ['Next 30 Days Due', next30DaysDue],
       ['Pending Payments', pendingPayments],
       ['Overdue Payments Count', overduePaymentsCount],
       ['Overdue Payments Value', overduePaymentsValue],
+      ['Available Units', availableUnits.length],
+      ['Available Inventory Value', availableInventoryValue],
       ...Object.entries(pipelineLeadStatus).map(([key, value]) => ['Lead Status: ' + key, value]),
       ...Object.entries(sources).map(([key, value]) => ['Lead Source: ' + key, value]),
       ...stageSummary.map((row) => ['Opportunity Stage: ' + row.stage, row.opportunities])
@@ -184,7 +242,10 @@ export default function ReportsPanel({ leads = [], tasks = [], userRole = 'sales
         <Card title='Weighted Pipeline' value={weightedPipeline.toLocaleString() + ' ج'} note='القيمة × نسبة الاحتمال' />
         <Card title='الصفقات الرابحة' value={wonValue.toLocaleString() + ' ج'} />
         <Card title='الحجوزات' value={reservedValue.toLocaleString() + ' ج'} />
-        <Card title='دفعات مستحقة' value={pendingPayments.toLocaleString() + ' ج'} />
+        <Card title='دفعات مجدولة' value={scheduledPayments.toLocaleString() + ' ج'} />
+        <Card title='محصل فعلي' value={paidPayments.toLocaleString() + ' ج'} />
+        <Card title='نسبة التحصيل' value={collectionRate.toFixed(1) + '%'} note='المحصل ÷ المجدول' />
+        <Card title='مستحق خلال 30 يوم' value={next30DaysDue.toLocaleString() + ' ج'} />
         <Card title='دفعات متأخرة' value={overduePaymentsValue.toLocaleString() + ' ج'} note={overduePaymentsCount + ' دفعة'} />
         <Card title='متابعات معلقة' value={pendingFollowups} />
         <Card title='متابعات متأخرة' value={overdueFollowups} />
@@ -225,6 +286,20 @@ export default function ReportsPanel({ leads = [], tasks = [], userRole = 'sales
           </div>
         )}
       </div>
+
+      {can(userRole, PERMISSIONS.FINANCE_VIEW) && (
+        <div style={{ background: '#3f321f', border: '1px solid #d9c5a4', borderRadius: 8, padding: '1rem' }}>
+          <h4 style={{ color: '#b08a4a', marginTop: 0 }}>اللوحة المالية والتشغيلية</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 }}>
+            <Card title='إجمالي الصفقات الرابحة' value={wonValue.toLocaleString() + ' ج'} note={wonDealsCount + ' صفقة'} />
+            <Card title='متوسط الصفقة الرابحة' value={averageWonDeal.toLocaleString() + ' ج'} />
+            <Card title='قيمة الحجوزات' value={reservedValue.toLocaleString() + ' ج'} />
+            <Card title='تحويل الحجز → Won' value={reservationToDealRate.toFixed(1) + '%'} />
+            <Card title='المخزون المتاح' value={availableUnits.length + ' وحدة'} />
+            <Card title='قيمة المخزون المتاح' value={availableInventoryValue.toLocaleString() + ' ج'} />
+          </div>
+        </div>
+      )}
 
       <div style={{ background: '#3f321f', border: '1px solid #d9c5a4', borderRadius: 8, padding: '1rem' }}>
         <h4 style={{ color: '#b08a4a', marginTop: 0 }}>مصادر العملاء</h4>
