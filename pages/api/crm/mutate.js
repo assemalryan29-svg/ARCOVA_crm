@@ -9,6 +9,7 @@ const TABLES = Object.freeze({
   units: { permission: 'units.manage', fields: ['title','type','price','status','project_id','unit_number','area'] },
   tasks: { permission: 'tasks.manage', fields: ['user_id','title','is_completed','lead_id','due_date','description','status','created_by'] },
   campaigns: { permission: 'campaigns.manage', fields: ['name','platform','budget','start_date','end_date','status'] },
+  saved_views: { permission: 'views.manage', fields: ['user_id','module','name','filters','is_shared'] },
   automation_rules: { permission: 'automation.manage', fields: ['rule_key','name_ar','description','trigger_event','conditions','action_type','action_config','is_active','updated_at'] },
   lead_folders: { permission: 'leads.create', fields: ['name','created_by','active'] },
   lead_logs: { permission: 'leads.update', fields: ['lead_id','user_email','action_type','content'] },
@@ -102,6 +103,7 @@ export default async function handler(req, res) {
       payload.assigned_to = payload.assigned_to || actor.user.id;
     }
     if (table === 'lead_folders') payload.created_by = payload.created_by || actor.user.id;
+    if (table === 'saved_views') payload.user_id = actor.user.id;
 
     result = await writeClient.from(table).insert([payload]).select('*').maybeSingle();
   } else {
