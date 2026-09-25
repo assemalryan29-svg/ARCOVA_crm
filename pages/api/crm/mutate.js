@@ -9,9 +9,6 @@ const TABLES = Object.freeze({
   units: { permission: 'units.manage', fields: ['title','type','price','status','project_id','unit_number','area'] },
   tasks: { permission: 'tasks.manage', fields: ['user_id','title','is_completed','lead_id','due_date','description','status','created_by'] },
   campaigns: { permission: 'campaigns.manage', fields: ['name','platform','budget','start_date','end_date','status'] },
-  deals: { permission: 'deals.manage', fields: ['lead_id','unit_id','sales_person','deal_value','commission','status','reservation_id','down_payment','installment_months','payment_frequency','contract_date','notes'] },
-  reservations: { permission: 'reservations.manage', fields: ['lead_id','unit_id','sales_person','reservation_amount','contract_value','status','expires_at','notes'] },
-  deal_payments: { permission: 'finance.manage', fields: ['deal_id','installment_no','due_date','amount','paid_at','status','notes'] },
   lead_folders: { permission: 'leads.create', fields: ['name','created_by','active'] },
   lead_logs: { permission: 'leads.update', fields: ['lead_id','user_email','action_type','content'] },
   profiles: { permission: 'users.manage', fields: ['full_name','phone','email','manager_id','team_leader_id','team_id','active'] },
@@ -77,7 +74,12 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const table = String(body.table || '');
   const config = TABLES[table];
-  if (!config) return res.status(400).json({ error: 'Unsupported CRM table.' });
+  if (!config) {
+    if (['deals','reservations','deal_payments'].includes(table)) {
+      return res.status(400).json({ error: 'Use the protected sales/finance RPC workflow for this table.' });
+    }
+    return res.status(400).json({ error: 'Unsupported CRM table.' });
+  }
 
   const action = req.method === 'POST' ? 'create' : req.method === 'PATCH' ? 'update' : 'delete';
   const permission = action === 'create' ? (config.create || config.permission) : action === 'delete' ? config.delete || config.permission : config.permission;
@@ -98,8 +100,6 @@ export default async function handler(req, res) {
     if (table === 'followups' || table === 'calls' || table === 'appointments') {
       payload.assigned_to = payload.assigned_to || actor.user.id;
     }
-    if (table === 'deals') payload.sales_person = payload.sales_person || actor.user.id;
-    if (table === 'reservations') payload.sales_person = payload.sales_person || actor.user.id;
     if (table === 'lead_folders') payload.created_by = payload.created_by || actor.user.id;
 
     result = await writeClient.from(table).insert([payload]).select('*').maybeSingle();
