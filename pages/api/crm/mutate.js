@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const TABLES = Object.freeze({
-  leads: { permission: 'leads.update', create: 'leads.create', delete: 'leads.delete', fields: ['name','phone','email','lead_source','status','assigned_to','temperature','next_follow_up','budget','unit_type','preferred_area','desired_unit_type','folder','preferred_location','project_id','external_source','external_lead_id'] },
+  leads: { permission: 'leads.update', create: 'leads.create', delete: 'leads.delete', fields: ['name','phone','email','lead_source','status','assigned_to','temperature','next_follow_up','budget','unit_type','preferred_area','desired_unit_type','folder','preferred_location','project_id','external_source','external_lead_id','campaign_id'] },
   followups: { permission: 'followups.manage', fields: ['lead_id','assigned_to','followup_date','type','status','notes'] },
   calls: { permission: 'calls.manage', fields: ['lead_id','assigned_to','call_at','duration_seconds','outcome','notes'] },
   appointments: { permission: 'appointments.manage', fields: ['lead_id','assigned_to','scheduled_at','type','status','notes'] },
