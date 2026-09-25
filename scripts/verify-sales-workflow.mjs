@@ -24,6 +24,8 @@ const checks = [
   ['customer 360 loads opportunities', /opportunities/],
   ['customer 360 loads payment timeline', /deal_payments/],
   ['dashboard exposes automation view', /AutomationPanel/],
+  ['dashboard inventory does not expose direct status handler', !/handleUpdateUnitStatus/.test(dashboard)],
+  ['gateway blocks direct unit status updates', /Unit status changes must use the protected reservation\/deal workflow/.test(gateway)],
 ];
 
 const failures = [];
@@ -35,7 +37,8 @@ for (const [name, pattern] of checks) {
     name.includes('dashboard') ? dashboard :
     (name.includes('pipeline') || name.includes('installment') || name.includes('collection') || name.includes('reservations') || name.includes('reservation release') || name.includes('deals use')) ? (name.includes('pipeline') ? pipeline : operations) :
     gateway;
-  if (!pattern.test(source)) failures.push(name);
+  const passed = typeof pattern === 'boolean' ? pattern : pattern.test(source);
+  if (!passed) failures.push(name);
 }
 
 for (const forbidden of [
