@@ -121,6 +121,9 @@ export default function Dashboard() {
   });
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryProjectFilter, setInventoryProjectFilter] = useState('');
+  const [inventoryStatusFilter, setInventoryStatusFilter] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
 
@@ -338,16 +341,32 @@ export default function Dashboard() {
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
-    if (!newProjectData.name) return;
-    const { error } = await crmMutation('POST', 'projects', newProjectData);
-    if (!error) { setShowProjectModal(false); setNewProjectData({ name: '', location: '', description: '' }); fetchData(); alert('تم إضافة المشروع'); }
+    if (!newProjectData.name?.trim() || !can(userRole, PERMISSIONS.PROJECTS_MANAGE)) return;
+    const payload = {
+      name: newProjectData.name.trim(),
+      location: newProjectData.location?.trim() || null,
+      project_type: newProjectData.project_type?.trim() || null,
+      delivery: newProjectData.delivery?.trim() || null,
+      description: newProjectData.description?.trim() || null
+    };
+    const { error } = await crmMutation('POST', 'projects', payload);
+    if (!error) { setShowProjectModal(false); setNewProjectData({ name: '', location: '', project_type: '', delivery: '', description: '' }); fetchData(); alert('تم إضافة المشروع'); }
   };
 
   const handleCreateUnit = async (e) => {
     e.preventDefault();
-    if (!newUnitData.project_id || !newUnitData.unit_number) return;
-    const { error } = await crmMutation('POST', 'units', newUnitData);
-    if (!error) { setShowUnitModal(false); setNewUnitData({ project_id: '', unit_number: '', type: 'شقة', area: '', price: '', status: 'Available' }); fetchData(); alert('تم إضافة الوحدة'); }
+    if (!newUnitData.project_id || !newUnitData.unit_number?.trim() || !can(userRole, PERMISSIONS.UNITS_MANAGE)) return;
+    const payload = {
+      project_id: newUnitData.project_id,
+      unit_number: newUnitData.unit_number.trim(),
+      title: newUnitData.title?.trim() || newUnitData.unit_number.trim(),
+      type: newUnitData.type?.trim() || 'شقة',
+      area: newUnitData.area ? Number(newUnitData.area) : null,
+      price: newUnitData.price ? Number(newUnitData.price) : null,
+      status: 'Available'
+    };
+    const { error } = await crmMutation('POST', 'units', payload);
+    if (!error) { setShowUnitModal(false); setNewUnitData({ project_id: '', unit_number: '', title: '', type: 'شقة', area: '', price: '', status: 'Available' }); fetchData(); alert('تم إضافة الوحدة'); }
   };
 
   const handleCreateTask = async (e) => {
@@ -392,11 +411,6 @@ export default function Dashboard() {
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, folder: folderName } : l));
       if (selectedLead?.id === leadId) setSelectedLead(prev => ({ ...prev, folder: folderName }));
     }
-  };
-
-  const handleUpdateUnitStatus = async (unitId, newStatus) => {
-    const { error } = await crmMutation('PATCH', 'units', { status: newStatus }, unitId);
-    if (!error) fetchData();
   };
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
@@ -761,6 +775,22 @@ export default function Dashboard() {
 
   const todayStr = (() => { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; })();
   const dueFollowUps = followups.filter((f) => f.status === 'Pending' && f.followup_date && new Date(f.followup_date).toISOString().slice(0, 10) <= todayStr);
+
+  const inventoryFilteredUnits = units.filter((unit) => {
+    const q = inventorySearch.trim().toLowerCase();
+    const unitText = [unit.unit_number, unit.title, unit.type, unit.projects?.name].filter(Boolean).join(' ').toLowerCase();
+    const matchesSearch = !q || unitText.includes(q);
+    const matchesProject = !inventoryProjectFilter || unit.project_id === inventoryProjectFilter;
+    const matchesStatus = !inventoryStatusFilter || (unit.status || 'Available') === inventoryStatusFilter;
+    return matchesSearch && matchesProject && matchesStatus;
+  });
+
+  const inventoryStats = {
+    total: units.length,
+    available: units.filter((u) => (u.status || 'Available') === 'Available').length,
+    reserved: units.filter((u) => u.status === 'Reserved').length,
+    sold: units.filter((u) => u.status === 'Sold').length
+  };
 
   const activeLeads = leads.filter(l => l.status !== 'Archived');
   const totalLeadsCount = activeLeads.length;
@@ -1183,43 +1213,118 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'projects' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>المشاريع والوحدات</h3>
-              {canManageTeam(userRole) && (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => setShowProjectModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d9c5a4', color: '#b08a4a', border: '1px solid #b08a4a', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مشروع</button>
-                  <button onClick={() => setShowUnitModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة وحدة</button>
-                </div>
-              )}
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <div>
+                <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.15rem', margin: 0 }}>المشاريع والوحدات</h3>
+                <div style={{ color: '#806f56', fontSize: '0.75rem', marginTop: '0.25rem' }}>إدارة الـInventory بدون السماح بتغيير الحجز أو البيع خارج الـworkflow المحمي.</div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {can(userRole, PERMISSIONS.PROJECTS_MANAGE) && (
+                  <button onClick={() => setShowProjectModal(true)} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#d9c5a4', color: '#765522', border: '1px solid #b08a4a', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مشروع</button>
+                )}
+                {can(userRole, PERMISSIONS.UNITS_MANAGE) && (
+                  <button onClick={() => setShowUnitModal(true)} disabled={!projects.length} style={{ padding: '0.5rem 0.9rem', backgroundColor: projects.length ? '#b08a4a' : '#b8aa93', color: '#fffaf0', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: projects.length ? 'pointer' : 'not-allowed', fontSize: '0.8rem' }}>
+                    + إضافة وحدة
+                  </button>
+                )}
+                {can(userRole, PERMISSIONS.RESERVATIONS_MANAGE) && (
+                  <button onClick={() => setActiveTab('operations')} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#3f321f', color: '#d9c5a4', border: '1px solid #b08a4a', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                    إدارة الحجوزات والصفقات
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ backgroundColor: '#fffaf0', borderRadius: '6px', overflowX: 'auto', border: '1px solid #d9c5a4' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.7rem' }}>
+              {[
+                ['إجمالي الوحدات', inventoryStats.total],
+                ['متاحة', inventoryStats.available],
+                ['محجوزة', inventoryStats.reserved],
+                ['مباعة', inventoryStats.sold]
+              ].map(([label, value]) => (
+                <div key={label} style={{ background: '#fffaf0', border: '1px solid #d9c5a4', borderRadius: 8, padding: '0.85rem' }}>
+                  <div style={{ color: '#806f56', fontSize: '0.7rem' }}>{label}</div>
+                  <strong style={{ display: 'block', color: '#b08a4a', fontSize: '1.3rem', marginTop: 3 }}>{value}</strong>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.8rem' }}>
+              {projects.map((project) => {
+                const projectUnits = units.filter((unit) => unit.project_id === project.id);
+                const available = projectUnits.filter((unit) => (unit.status || 'Available') === 'Available').length;
+                const reserved = projectUnits.filter((unit) => unit.status === 'Reserved').length;
+                const sold = projectUnits.filter((unit) => unit.status === 'Sold').length;
+                return (
+                  <div key={project.id} style={{ background: '#3f321f', border: '1px solid #d9c5a4', borderRadius: 8, padding: '0.9rem' }}>
+                    <div style={{ color: '#fffaf0', fontWeight: 700 }}>{project.name}</div>
+                    <div style={{ color: '#b08a4a', fontSize: '0.75rem', marginTop: 3 }}>{project.location || 'الموقع غير محدد'}</div>
+                    <div style={{ color: '#806f56', fontSize: '0.68rem', marginTop: 6 }}>{project.project_type || 'مشروع عقاري'} · {project.delivery || 'موعد التسليم غير محدد'}</div>
+                    <div style={{ display: 'flex', gap: '0.8rem', marginTop: 8, fontSize: '0.68rem' }}>
+                      <span style={{ color: '#34d399' }}>متاحة {available}</span>
+                      <span style={{ color: '#f59e0b' }}>محجوزة {reserved}</span>
+                      <span style={{ color: '#f87171' }}>مباعة {sold}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {!projects.length && <div style={{ color: '#806f56', fontSize: '0.8rem' }}>لا توجد مشاريع مسجلة حتى الآن.</div>}
+            </div>
+
+            <div style={{ background: '#fffaf0', borderRadius: 8, overflowX: 'auto', border: '1px solid #d9c5a4' }}>
+              <div style={{ padding: '0.8rem', borderBottom: '1px solid #d9c5a4', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <input
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  placeholder="بحث برقم الوحدة أو الاسم أو النوع..."
+                  style={{ flex: 1, minWidth: 220, padding: '0.5rem 0.7rem', background: '#f5efe3', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: 6, fontSize: '0.78rem' }}
+                />
+                <select value={inventoryProjectFilter} onChange={(e) => setInventoryProjectFilter(e.target.value)} style={{ padding: '0.5rem', background: '#f5efe3', color: '#765522', border: '1px solid #d9c5a4', borderRadius: 6, fontSize: '0.78rem' }}>
+                  <option value="">كل المشاريع</option>
+                  {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                </select>
+                <select value={inventoryStatusFilter} onChange={(e) => setInventoryStatusFilter(e.target.value)} style={{ padding: '0.5rem', background: '#f5efe3', color: '#765522', border: '1px solid #d9c5a4', borderRadius: 6, fontSize: '0.78rem' }}>
+                  <option value="">كل الحالات</option>
+                  <option value="Available">متاحة</option>
+                  <option value="Reserved">محجوزة</option>
+                  <option value="Sold">مباعة</option>
+                </select>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.8rem' }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#f5efe3', color: '#b08a4a', borderBottom: '1px solid #d9c5a4' }}>
-                    <th style={{ padding: '0.8rem' }}>المشروع</th>
-                    <th style={{ padding: '0.8rem' }}>رقم الوحدة / النوع</th>
-                    <th style={{ padding: '0.8rem' }}>المساحة</th>
-                    <th style={{ padding: '0.8rem' }}>السعر</th>
-                    <th style={{ padding: '0.8rem' }}>الحالة</th>
+                  <tr style={{ background: '#f5efe3', color: '#765522' }}>
+                    <th style={{ padding: '0.75rem' }}>المشروع</th>
+                    <th style={{ padding: '0.75rem' }}>الوحدة</th>
+                    <th style={{ padding: '0.75rem' }}>النوع</th>
+                    <th style={{ padding: '0.75rem' }}>المساحة</th>
+                    <th style={{ padding: '0.75rem' }}>السعر</th>
+                    <th style={{ padding: '0.75rem' }}>الحالة</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {units.map(unit => (
-                    <tr key={unit.id} style={{ borderBottom: '1px solid #d9c5a4' }}>
-                      <td style={{ padding: '0.8rem', color: '#fff', fontWeight: 'bold' }}>{unit.projects?.name || '-'}</td>
-                      <td style={{ padding: '0.8rem', color: '#806f56' }}>{unit.unit_number} ({unit.type})</td>
-                      <td style={{ padding: '0.8rem', color: '#806f56' }}>{unit.area ? `${unit.area} م²` : '-'}</td>
-                      <td style={{ padding: '0.8rem', color: '#34d399' }}>{unit.price ? `${Number(unit.price).toLocaleString()} ج.م` : '-'}</td>
-                      <td style={{ padding: '0.8rem' }}>
-                        <select value={unit.status || 'Available'} onChange={(e) => handleUpdateUnitStatus(unit.id, e.target.value)} disabled={!canManageInventory(userRole)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: unit.status === 'Sold' ? '#f87171' : '#34d399', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
-                          <option value="Available">متاحة</option>
-                          <option value="Reserved">محجوزة</option>
-                          <option value="Sold">مباعة</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
+                  {inventoryFilteredUnits.map((unit) => {
+                    const status = unit.status || 'Available';
+                    const statusLabel = status === 'Available' ? 'متاحة' : status === 'Reserved' ? 'محجوزة' : 'مباعة';
+                    const statusColor = status === 'Available' ? '#34d399' : status === 'Reserved' ? '#f59e0b' : '#f87171';
+                    return (
+                      <tr key={unit.id} style={{ borderBottom: '1px solid #d9c5a4' }}>
+                        <td style={{ padding: '0.75rem', fontWeight: 700, color: '#3f321f' }}>{unit.projects?.name || '-'}</td>
+                        <td style={{ padding: '0.75rem', color: '#806f56' }}>{unit.unit_number || unit.title || '-'}</td>
+                        <td style={{ padding: '0.75rem', color: '#806f56' }}>{unit.type || '-'}</td>
+                        <td style={{ padding: '0.75rem', color: '#806f56' }}>{unit.area ? Number(unit.area).toLocaleString() + ' م²' : '-'}</td>
+                        <td style={{ padding: '0.75rem', color: '#3f321f', fontWeight: 700 }}>{unit.price ? Number(unit.price).toLocaleString() + ' ج.م' : '-'}</td>
+                        <td style={{ padding: '0.75rem' }}>
+                          <span style={{ display: 'inline-block', padding: '0.25rem 0.55rem', borderRadius: 999, background: statusColor, color: '#fff', fontSize: '0.68rem', fontWeight: 700 }}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!inventoryFilteredUnits.length && (
+                    <tr><td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: '#806f56' }}>لا توجد وحدات مطابقة للفلاتر الحالية.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1531,6 +1636,9 @@ export default function Dashboard() {
             <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
               <input type="text" placeholder="اسم المشروع" required value={newProjectData.name} onChange={(e) => setNewProjectData({...newProjectData, name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="text" placeholder="الموقع" value={newProjectData.location} onChange={(e) => setNewProjectData({...newProjectData, location: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="نوع المشروع" value={newProjectData.project_type || ''} onChange={(e) => setNewProjectData({...newProjectData, project_type: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="التسليم" value={newProjectData.delivery || ''} onChange={(e) => setNewProjectData({...newProjectData, delivery: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <textarea placeholder="وصف المشروع" value={newProjectData.description || ''} onChange={(e) => setNewProjectData({...newProjectData, description: e.target.value})} style={{ padding: '0.5rem', minHeight: 70, backgroundColor: '#f5efe3', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
               <button type="button" onClick={() => setShowProjectModal(false)} style={{ padding: '0.5rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
             </form>
@@ -1548,7 +1656,11 @@ export default function Dashboard() {
                 <option value="">اختر المشروع...</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <input type="text" placeholder="رقم / اسم الوحدة" required value={newUnitData.unit_number} onChange={(e) => setNewUnitData({...newUnitData, unit_number: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="رقم الوحدة" required value={newUnitData.unit_number} onChange={(e) => setNewUnitData({...newUnitData, unit_number: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="اسم الوحدة (اختياري)" value={newUnitData.title || ''} onChange={(e) => setNewUnitData({...newUnitData, title: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <select value={newUnitData.type} onChange={(e) => setNewUnitData({...newUnitData, type: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }}>
+                <option value="شقة">شقة</option><option value="محل">محل</option><option value="إداري">إداري</option><option value="طبي">طبي</option><option value="فيلا">فيلا</option><option value="عيادة">عيادة</option>
+              </select>
               <input type="number" placeholder="المساحة" value={newUnitData.area} onChange={(e) => setNewUnitData({...newUnitData, area: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <input type="number" placeholder="السعر" value={newUnitData.price} onChange={(e) => setNewUnitData({...newUnitData, price: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
