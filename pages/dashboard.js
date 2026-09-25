@@ -7,6 +7,7 @@ import OperationsPanel from '../components/OperationsPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import AutomationPanel from '../components/AutomationPanel';
 import CampaignsPanel from '../components/CampaignsPanel';
+import SavedViewsBar from '../components/SavedViewsBar';
 import FollowupsPanel from '../components/FollowupsPanel';
 import LeadCard from '../components/LeadCard';
 import DailyBrief from '../components/DailyBrief';
@@ -62,6 +63,10 @@ export default function Dashboard() {
   const [followups, setFollowups] = useState([]);
   const [selectedFolderFilter, setSelectedFolderFilter] = useState('');
   const [selectedCampaignFilter, setSelectedCampaignFilter] = useState('');
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState('');
+  const [leadStatusFilter, setLeadStatusFilter] = useState('');
+  const [leadTemperatureFilter, setLeadTemperatureFilter] = useState('');
+  const [leadAssigneeFilter, setLeadAssigneeFilter] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 
@@ -761,20 +766,53 @@ export default function Dashboard() {
 
   // تصفية العملاء
   const filteredLeads = leads.filter(l => {
-    const matchesSearch = (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (l.phone || '').includes(searchQuery);
-    const matchesFolder = selectedFolderFilter ? l.folder === selectedFolderFilter : true;
-    
-    // فلترة الماركتنج حسب الحملة/المشروع وإمكانية الرؤية
-    let matchesCampaignOrProject = true;
-    if (selectedCampaignFilter) {
-      matchesCampaignOrProject = (l.campaign_id === selectedCampaignFilter || l.lead_source === selectedCampaignFilter || l.preferred_area === selectedCampaignFilter);
-    } else if (userRole === 'marketing') {
-      // إذا لم يجهز للماركتنج فلتر، يرى فقط العملاء المرتبطين بحملاته أو مصادره
-      matchesCampaignOrProject = l.lead_source === 'Marketing' || l.assigned_to === currentUser.id;
+    const matchesSearch = !searchQuery.trim() ||
+      (l.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (l.phone || '').includes(searchQuery) ||
+      (l.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesFolder = !selectedFolderFilter || l.folder === selectedFolderFilter;
+    const matchesCampaign = !selectedCampaignFilter || l.campaign_id === selectedCampaignFilter;
+    const matchesProject = !selectedProjectFilter || l.project_id === selectedProjectFilter;
+    const matchesStatus = !leadStatusFilter || l.status === leadStatusFilter;
+    const matchesTemperature = !leadTemperatureFilter || l.temperature === leadTemperatureFilter;
+    const matchesAssignee = !leadAssigneeFilter || l.assigned_to === leadAssigneeFilter;
+
+    let matchesMarketingScope = true;
+    if (userRole === 'marketing') {
+      matchesMarketingScope = l.lead_source === 'Marketing' || l.assigned_to === currentUser?.id || Boolean(l.campaign_id);
     }
 
-    return l.status !== 'Archived' && matchesSearch && matchesFolder && matchesCampaignOrProject;
+    return l.status !== 'Archived' &&
+      matchesSearch &&
+      matchesFolder &&
+      matchesCampaign &&
+      matchesProject &&
+      matchesStatus &&
+      matchesTemperature &&
+      matchesAssignee &&
+      matchesMarketingScope;
   });
+
+  const leadSavedFilters = {
+    q: searchQuery,
+    folder: selectedFolderFilter,
+    campaign: selectedCampaignFilter,
+    project: selectedProjectFilter,
+    status: leadStatusFilter,
+    temperature: leadTemperatureFilter,
+    assignee: leadAssigneeFilter
+  };
+
+  const applyLeadSavedView = (filters = {}) => {
+    setSearchQuery(filters.q || '');
+    setSelectedFolderFilter(filters.folder || '');
+    setSelectedCampaignFilter(filters.campaign || '');
+    setSelectedProjectFilter(filters.project || '');
+    setLeadStatusFilter(filters.status || '');
+    setLeadTemperatureFilter(filters.temperature || '');
+    setLeadAssigneeFilter(filters.assignee || '');
+  };
 
   const todayStr = (() => { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; })();
   const dueFollowUps = followups.filter((f) => f.status === 'Pending' && f.followup_date && new Date(f.followup_date).toISOString().slice(0, 10) <= todayStr);
@@ -996,53 +1034,61 @@ export default function Dashboard() {
               gap: '0.8rem',
               marginBottom: '1rem' 
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap', flex: 1 }}>
-                {/* تصفية حسب المجلد */}
-                <select 
-                  value={selectedFolderFilter} 
-                  onChange={(e) => setSelectedFolderFilter(e.target.value)}
-                  style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#b08a4a', borderRadius: '6px', fontSize: '0.85rem' }}
-                >
-                  <option value="">📁 كل المجلدات</option>
-                  {folders.map((f, idx) => (
-                    <option key={idx} value={f}>📂 {f}</option>
-                  ))}
-                </select>
-
-                {/* زر إنشاء مجلد جديد */}
-                {can(userRole, PERMISSIONS.LEADS_CREATE) && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateFolderModal(true)}
-                    style={{ padding: '0.5rem 0.8rem', backgroundColor: '#d9c5a4', color: '#b08a4a', border: '1px solid #b08a4a', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
-                  >
-                    + مجلد جديد
-                  </button>
-                )}
-
-                {/* فلتر حملة الماركتنج والمشروع */}
-                <select 
-                  value={selectedCampaignFilter} 
-                  onChange={(e) => setSelectedCampaignFilter(e.target.value)}
-                  style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#9333ea', borderRadius: '6px', fontSize: '0.85rem' }}
-                >
-                  <option value="">🎯 كل الحملات والمشاريع</option>
-                  {campaigns.map(c => (
-                    <option key={c.id} value={c.name}>📢 {c.name}</option>
-                  ))}
-                  {projects.map(p => (
-                    <option key={p.id} value={p.name}>🏢 {p.name}</option>
-                  ))}
-                </select>
-
-                {/* شريط البحث */}
-                <input 
-                  type="text" 
-                  placeholder="🔍 بحث باسم العميل أو الهاتف..." 
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)} 
-                  style={{ flex: 1, minWidth: '200px', padding: '0.5rem 0.8rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#fff', borderRadius: '6px', fontSize: '0.85rem' }} 
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', alignItems: 'center', gap: '0.55rem', flex: 1 }}>
+                <input
+                  type="text"
+                  placeholder="🔍 اسم / هاتف / بريد..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ minWidth: 190, padding: '0.5rem 0.7rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#3f321f', borderRadius: '6px', fontSize: '0.78rem' }}
                 />
+
+                <select value={selectedFolderFilter} onChange={(e) => setSelectedFolderFilter(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#b08a4a', borderRadius: '6px', fontSize: '0.78rem' }}>
+                  <option value="">📁 كل المجلدات</option>
+                  {folders.map((f, idx) => <option key={idx} value={f}>📂 {f}</option>)}
+                </select>
+
+                <select value={selectedCampaignFilter} onChange={(e) => setSelectedCampaignFilter(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#9333ea', borderRadius: '6px', fontSize: '0.78rem' }}>
+                  <option value="">🎯 كل الحملات</option>
+                  {campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>📢 {campaign.name}</option>)}
+                </select>
+
+                <select value={selectedProjectFilter} onChange={(e) => setSelectedProjectFilter(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#765522', borderRadius: '6px', fontSize: '0.78rem' }}>
+                  <option value="">🏢 كل المشاريع</option>
+                  {projects.map((project) => <option key={project.id} value={project.id}>🏢 {project.name}</option>)}
+                </select>
+
+                <select value={leadStatusFilter} onChange={(e) => setLeadStatusFilter(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#b08a4a', borderRadius: '6px', fontSize: '0.78rem' }}>
+                  <option value="">كل الحالات</option>
+                  {statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                </select>
+
+                <select value={leadTemperatureFilter} onChange={(e) => setLeadTemperatureFilter(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#d97706', borderRadius: '6px', fontSize: '0.78rem' }}>
+                  <option value="">كل درجات الحرارة</option>
+                  <option value="Hot">🔥 Hot</option>
+                  <option value="Warm">🟠 Warm</option>
+                  <option value="Cold">❄️ Cold</option>
+                </select>
+
+                {canManageTeam(userRole) && (
+                  <select value={leadAssigneeFilter} onChange={(e) => setLeadAssigneeFilter(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#765522', borderRadius: '6px', fontSize: '0.78rem' }}>
+                    <option value="">كل المسؤولين</option>
+                    {teamMembers.map((member) => <option key={member.id} value={member.id}>{member.full_name || member.email}</option>)}
+                  </select>
+                )}
+              </div>
+
+              <div style={{ marginTop: '0.65rem' }}>
+                <SavedViewsBar userRole={userRole} module="leads" filters={leadSavedFilters} onLoad={applyLeadSavedView} />
+                <button
+                  type="button"
+                  onClick={() => applyLeadSavedView({})}
+                  style={{ padding: '0.42rem 0.7rem', background: '#f5efe3', color: '#765522', border: '1px solid #d9c5a4', borderRadius: 7, fontSize: '.72rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  إعادة ضبط الفلاتر
+                </button>
+              </div>
+
               </div>
 
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
