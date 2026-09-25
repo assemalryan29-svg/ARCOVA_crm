@@ -348,6 +348,18 @@ export default function Dashboard() {
     } catch (err) { alert('تعذر الاتصال بالخادم.'); }
   };
 
+  const inventorySavedFilters = {
+    query: inventorySearch,
+    project: inventoryProjectFilter,
+    status: inventoryStatusFilter
+  };
+
+  const applyInventorySavedView = (filters = {}) => {
+    setInventorySearch(filters.query || '');
+    setInventoryProjectFilter(filters.project || '');
+    setInventoryStatusFilter(filters.status || '');
+  };
+
   const resetProjectForm = () => {
     setEditingProjectId(null);
     setNewProjectData({ name: '', location: '', project_type: '', delivery: '', description: '' });
@@ -1432,6 +1444,14 @@ export default function Dashboard() {
                   <option value="Reserved">محجوزة</option>
                   <option value="Sold">مباعة</option>
                 </select>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <SavedViewsBar
+                  userRole={userRole}
+                  module="projects"
+                  filters={inventorySavedFilters}
+                  onLoad={applyInventorySavedView}
+                />
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.8rem' }}>
                 <thead>
