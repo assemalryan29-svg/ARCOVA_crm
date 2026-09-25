@@ -1384,7 +1384,7 @@ export default function Dashboard() {
             </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
                 {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
-                  <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="حذف العميل من القائمة مع الاحتفاظ به في الأرشيف">🗑️ حذف العميل</button>
+                  <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="إخفاء العميل من القائمة الحالية مع الاحتفاظ به في الأرشيف">🗄️ أرشفة العميل</button>
                 )}
                 <a href={`/customer360?lead_id=${encodeURIComponent(selectedLead.id)}`} style={{ padding:'0.4rem 0.8rem', backgroundColor:'#f5efe3', color:'#765522', border:'1px solid #d9c5a4', borderRadius:'4px', textDecoration:'none', fontSize:'0.8rem', fontWeight:'bold' }}>360° الملف الكامل</a>
               </div>
