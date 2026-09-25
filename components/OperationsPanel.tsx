@@ -590,6 +590,7 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
             ))}
             {!payments.length && <div style={{ color: '#9a7b4b' }}>لا توجد دفعات.</div>}
           </div>
+          </div>
         </div>
       )}
     </div>
