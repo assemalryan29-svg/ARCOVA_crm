@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { can, PERMISSIONS } from '../lib/permissions';
 
@@ -227,6 +227,24 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       setBusy(false);
     }
   };
+
+  const financeSummary = useMemo(() => {
+    const total = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const paid = payments.filter((payment) => payment.status === 'Paid').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const overdue = payments
+      .filter((payment) => payment.status === 'Overdue' || (payment.status === 'Pending' && payment.due_date && new Date(payment.due_date).getTime() < Date.now()))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const pending = payments
+      .filter((payment) => !['Paid', 'Cancelled'].includes(payment.status))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    return {
+      total,
+      paid,
+      overdue,
+      pending,
+      collectionRate: total > 0 ? (paid / total) * 100 : 0
+    };
+  }, [payments]);
 
   const recordPayment = async (paymentId) => {
     if (!canFinanceManage) return;
@@ -487,6 +505,28 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
           <div style={{ ...panel, color: '#fffaf0', fontSize: '0.78rem' }}>
             التحصيل الآن يتم عبر دالة قاعدة البيانات المسؤولة عن الصلاحيات والتسجيل audit، وليس بإدخال دفعة مباشرة من الواجهة.
           </div>
+          <div style={{ display: 'grid', gap: '0.8rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: '0.55rem' }}>
+            {[
+              ['إجمالي جدول الأقساط', financeSummary.total],
+              ['المحصل', financeSummary.paid],
+              ['المستحق', financeSummary.pending],
+              ['المتأخر', financeSummary.overdue]
+            ].map(([label, value]) => (
+              <div key={label} style={{ ...panel, padding: '0.7rem' }}>
+                <div style={{ color: '#9a7b4b', fontSize: '.68rem' }}>{label}</div>
+                <strong style={{ display: 'block', color: label === 'المتأخر' ? '#f59e0b' : '#b08a4a', fontSize: '1.1rem', marginTop: 4 }}>
+                  {Number(value || 0).toLocaleString()} ج
+                </strong>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...panel, color: '#fffaf0', fontSize: '.8rem' }}>
+            نسبة التحصيل: <strong style={{ color: '#34d399' }}>{financeSummary.collectionRate.toFixed(1)}%</strong>
+            <span style={{ color: '#9a7b4b', marginRight: 8 }}>محصل من إجمالي جدول الدفعات الظاهر ضمن صلاحيات الحساب</span>
+          </div>
+
           <div style={{ display: 'grid', gap: '0.5rem' }}>
             {payments.map((payment) => (
               <div key={payment.id} style={{ ...panel, fontSize: '0.78rem' }}>
