@@ -68,7 +68,8 @@ export default async function handler(req, res) {
     email: String(lead?.email ?? '').trim() || null,
     lead_source: String(lead?.lead_source ?? 'Imported').trim() || 'Imported',
     status: String(lead?.status ?? 'New Lead').trim() || 'New Lead',
-    assigned_to: userId
+    assigned_to: userId,
+    campaign_id: String(lead?.campaign_id ?? '').trim() || null
   }));
 
   const valid = [];
