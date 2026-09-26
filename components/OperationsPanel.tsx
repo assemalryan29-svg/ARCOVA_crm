@@ -10,6 +10,20 @@ async function crmMutation(method, body) {
   if (!response.ok) throw new Error(result.error || 'فشلت العملية.');
   return result;
 }
+
+async function crmWorkflow(action, args) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error('انتهت الجلسة.');
+  const response = await fetch('/api/crm/workflow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ action, args })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'فشلت عملية الـWorkflow.');
+  return result;
+}
 import { can, PERMISSIONS } from '../lib/permissions';
 
 const tabs = [
@@ -74,30 +88,70 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       </div>
 
       {active === 'deals' && <div style={{ display: 'grid', gap: '0.7rem' }}>
-        {canDeals && <form onSubmit={(e) => { const f=new FormData(e.currentTarget); return submit(e,'deals',{lead_id:f.get('lead_id'),unit_id:f.get('unit_id')||null,sales_person:currentUser.id,deal_value:Number(f.get('deal_value')||0),down_payment:Number(f.get('down_payment')||0),installment_months:f.get('installment_months')?Number(f.get('installment_months')):null,payment_frequency:f.get('payment_frequency'),status:f.get('status'),notes:f.get('notes')||null},'فشل إنشاء الصفقة'); }} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
-          <select name='lead_id' required style={selectStyle}><option value=''>العميل</option>{leads.map((l)=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
-          <select name='unit_id' style={selectStyle}><option value=''>الوحدة</option>{units.map((u)=><option key={u.id} value={u.id}>{u.unit_number || u.title}</option>)}</select>
+        {canDeals && <form onSubmit={async (e) => {
+          e.preventDefault();
+          const f=new FormData(e.currentTarget);
+          setBusy(true);
+          try {
+            await crmWorkflow('confirm_deal', {
+              p_reservation_id:f.get('reservation_id'),
+              p_deal_value:Number(f.get('deal_value')||0),
+              p_down_payment:Number(f.get('down_payment')||0),
+              p_installment_months:f.get('installment_months')?Number(f.get('installment_months')):null,
+              p_payment_frequency:f.get('payment_frequency'),
+              p_contract_date:f.get('contract_date') || new Date().toISOString().slice(0,10),
+              p_commission:Number(f.get('commission')||0),
+              p_notes:f.get('notes')||null
+            });
+            e.currentTarget.reset();
+            await load();
+          } catch(error) { alert('فشل تحويل الحجز إلى صفقة: ' + error.message); }
+          finally { setBusy(false); }
+        }} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
+          <select name='reservation_id' required style={selectStyle}><option value=''>اختر حجزًا</option>{reservations.filter(r=>!['Cancelled','Released','Won'].includes(r.status)).map((r)=><option key={r.id} value={r.id}>{r.leads?.name || '—'} · {r.units?.unit_number || r.units?.title || '—'}</option>)}</select>
           <Input name='deal_value' placeholder='قيمة الصفقة' type='number' required />
           <Input name='down_payment' placeholder='المقدم' type='number' />
           <Input name='installment_months' placeholder='مدة التقسيط بالشهور' type='number' />
           <select name='payment_frequency' style={selectStyle}><option value='monthly'>شهري</option><option value='quarterly'>ربع سنوي</option><option value='yearly'>سنوي</option></select>
-          <select name='status' style={selectStyle}><option value='Pending'>Pending</option><option value='Won'>Won</option><option value='Cancelled'>Cancelled</option></select>
+          <Input name='contract_date' placeholder='' type='date' />
+          <Input name='commission' placeholder='العمولة' type='number' />
           <Input name='notes' placeholder='ملاحظات' />
-          <button disabled={busy} type='submit' style={{ background:'#b08a4a', border:0, borderRadius:'5px', fontWeight:700 }}>حفظ الصفقة</button>
+          <button disabled={busy} type='submit' style={{ background:'#b08a4a', border:0, borderRadius:'5px', fontWeight:700 }}>تحويل الحجز إلى صفقة</button>
         </form>}
         <div style={{ display:'grid',gap:'0.5rem' }}>{deals.map((d)=><div key={d.id} style={{ background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem' }}><strong>{d.leads?.name || '—'}</strong> · {Number(d.deal_value || 0).toLocaleString()} ج · {d.status}</div>)}{!deals.length&&<div style={{color:'#9a7b4b'}}>لا توجد صفقات.</div>}</div>
       </div>}
 
       {active === 'reservations' && <div style={{ display:'grid',gap:'0.7rem' }}>
-        {canReservations && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'reservations',{lead_id:f.get('lead_id'),unit_id:f.get('unit_id'),sales_person:currentUser.id,reservation_amount:Number(f.get('reservation_amount')||0),contract_value:Number(f.get('contract_value')||0),status:'Pending',notes:f.get('notes')||null},'فشل تسجيل الحجز');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
+        {canReservations && <form onSubmit={async (e)=> {
+          e.preventDefault();
+          const f=new FormData(e.currentTarget);
+          setBusy(true);
+          try {
+            await crmWorkflow('reserve', {
+              p_lead_id:f.get('lead_id'),
+              p_unit_id:f.get('unit_id'),
+              p_reservation_amount:Number(f.get('reservation_amount')||0),
+              p_contract_value:f.get('contract_value')?Number(f.get('contract_value')):null,
+              p_expires_at:f.get('expires_at')?new Date(f.get('expires_at')).toISOString():null,
+              p_notes:f.get('notes')||null
+            });
+            e.currentTarget.reset();
+            await load();
+          } catch(error) { alert('فشل تسجيل الحجز: ' + error.message); }
+          finally { setBusy(false); }
+        }} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
           <select name='lead_id' required style={selectStyle}><option value=''>العميل</option>{leads.map((l)=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
-          <select name='unit_id' required style={selectStyle}><option value=''>الوحدة</option>{units.map((u)=><option key={u.id} value={u.id}>{u.unit_number || u.title}</option>)}</select>
+          <select name='unit_id' required style={selectStyle}><option value=''>الوحدة</option>{units.filter(u=>u.status==='Available').map((u)=><option key={u.id} value={u.id}>{u.unit_number || u.title}</option>)}</select>
           <Input name='reservation_amount' placeholder='مبلغ الحجز' type='number' required />
           <Input name='contract_value' placeholder='القيمة التعاقدية' type='number' />
+          <Input name='expires_at' placeholder='' type='datetime-local' />
           <Input name='notes' placeholder='ملاحظات' />
-          <button disabled={busy} type='submit' style={{ background:'#b08a4a',border:0,borderRadius:'5px',fontWeight:700 }}>تسجيل الحجز</button>
+          <button disabled={busy} type='submit' style={{ background:'#b08a4a',border:0,borderRadius:'5px',fontWeight:700 }}>حجز الوحدة ذريًا</button>
         </form>}
-        <div style={{ display:'grid',gap:'0.5rem' }}>{reservations.map((r)=><div key={r.id} style={{ background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem' }}>{r.leads?.name||'—'} · {r.units?.unit_number||r.units?.title||'—'} · {Number(r.reservation_amount||0).toLocaleString()} ج · {r.status}</div>)}</div>
+        <div style={{ display:'grid',gap:'0.5rem' }}>{reservations.map((r)=><div key={r.id} style={{ background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem',display:'flex',justifyContent:'space-between',gap:'0.5rem',alignItems:'center',flexWrap:'wrap' }}>
+          <span>{r.leads?.name||'—'} · {r.units?.unit_number||r.units?.title||'—'} · {Number(r.reservation_amount||0).toLocaleString()} ج · {r.status}</span>
+          {!['Cancelled','Released','Won'].includes(r.status) && canReservations && <button type='button' disabled={busy} onClick={async()=>{if(!window.confirm('تأكيد إلغاء الحجز وإتاحة الوحدة؟'))return;setBusy(true);try{await crmWorkflow('release',{p_reservation_id:r.id,p_new_status:'Cancelled'});await load();}catch(error){alert('فشل إلغاء الحجز: '+error.message);}finally{setBusy(false);}}} style={{ background:'#7f1d1d',color:'#fff',border:0,borderRadius:5,padding:'0.35rem 0.6rem',cursor:'pointer' }}>إلغاء الحجز</button>}
+        </div>)}</div>
       </div>}
 
       {active === 'calls' && <div style={{ display:'grid',gap:'0.7rem' }}>
@@ -124,13 +178,14 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
       </div>}
 
       {active === 'finance' && canFinanceView && <div style={{ display:'grid',gap:'0.7rem' }}>
-        {canFinanceManage && <form onSubmit={(e)=>{const f=new FormData(e.currentTarget);return submit(e,'deal_payments',{deal_id:f.get('deal_id'),installment_no:Number(f.get('installment_no')),due_date:f.get('due_date'),amount:Number(f.get('amount')),status:'Pending'},'فشل إضافة الدفعة');}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'0.45rem' }}>
-          <select name='deal_id' required style={selectStyle}><option value=''>الصفقة</option>{deals.map((d)=><option key={d.id} value={d.id}>{d.leads?.name||d.id}</option>)}</select>
-          <Input name='installment_no' placeholder='رقم القسط' type='number' required />
-          <Input name='due_date' placeholder='' type='date' required />
-          <Input name='amount' placeholder='قيمة القسط' type='number' required />
-          <button disabled={busy} type='submit' style={{ background:'#b08a4a',border:0,borderRadius:'5px',fontWeight:700 }}>إضافة دفعة</button>
-        </form>}
+        {canFinanceManage && <div style={{ display:'grid',gap:'0.6rem' }}>
+          <form onSubmit={async (e)=>{e.preventDefault();const f=new FormData(e.currentTarget);setBusy(true);try{await crmWorkflow('schedule',{p_deal_id:f.get('deal_id'),p_first_due_date:f.get('first_due_date')||new Date().toISOString().slice(0,10)});e.currentTarget.reset();await load();}catch(error){alert('فشل إنشاء جدول الأقساط: '+error.message);}finally{setBusy(false);}}} style={{ background:'#3f321f',padding:'0.8rem',borderRadius:'8px',border:'1px solid #d9c5a4',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:'0.45rem' }}>
+            <select name='deal_id' required style={selectStyle}><option value=''>الصفقة</option>{deals.map((d)=><option key={d.id} value={d.id}>{d.leads?.name||d.id}</option>)}</select>
+            <Input name='first_due_date' type='date' placeholder='' required />
+            <button disabled={busy} type='submit' style={{ background:'#b08a4a',border:0,borderRadius:'5px',fontWeight:700 }}>إنشاء جدول الأقساط</button>
+          </form>
+          <div style={{ color:'#9a7b4b',fontSize:'0.75rem' }}>الدفعات لا تُنشأ أو تُعدّل مباشرة؛ يتم التحكم بها عبر الـWorkflow المالي.</div>
+        </div>}
         <div style={{ display:'grid',gap:'0.5rem' }}>{payments.map((p)=><div key={p.id} style={{ background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem' }}>قسط {p.installment_no} · {Number(p.amount||0).toLocaleString()} ج · {p.status} · {p.due_date}</div>)}</div>
       </div>}
     </div>
