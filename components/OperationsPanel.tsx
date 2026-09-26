@@ -186,7 +186,10 @@ export default function OperationsPanel({ currentUser, userRole, leads = [], uni
           </form>
           <div style={{ color:'#9a7b4b',fontSize:'0.75rem' }}>الدفعات لا تُنشأ أو تُعدّل مباشرة؛ يتم التحكم بها عبر الـWorkflow المالي.</div>
         </div>}
-        <div style={{ display:'grid',gap:'0.5rem' }}>{payments.map((p)=><div key={p.id} style={{ background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem' }}>قسط {p.installment_no} · {Number(p.amount||0).toLocaleString()} ج · {p.status} · {p.due_date}</div>)}</div>
+        <div style={{ display:'grid',gap:'0.5rem' }}>{payments.map((p)=><div key={p.id} style={{ background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'7px',padding:'0.7rem',fontSize:'0.78rem',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'0.5rem',flexWrap:'wrap' }}>
+          <span>قسط {p.installment_no} · {Number(p.amount||0).toLocaleString()} ج · {p.status} · {p.due_date}</span>
+          {canFinanceManage && p.status !== 'Paid' && p.status !== 'Cancelled' && <button type='button' disabled={busy} onClick={async()=>{if(!window.confirm('تأكيد تسجيل سداد هذا القسط؟'))return;setBusy(true);try{await crmWorkflow('record_payment',{p_payment_id:p.id,p_paid_at:new Date().toISOString()});await load();}catch(error){alert('فشل تسجيل السداد: '+error.message);}finally{setBusy(false);}}} style={{ background:'#166534',color:'#fff',border:0,borderRadius:5,padding:'0.35rem 0.6rem',cursor:'pointer' }}>تسجيل السداد</button>}
+        </div>)}</div>
       </div>}
     </div>
   );
