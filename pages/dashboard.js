@@ -62,6 +62,8 @@ export default function Dashboard() {
   // المجلدات والفلاتر الجديدة
   const [folders, setFolders] = useState([]);
   const [followups, setFollowups] = useState([]);
+  const [calls, setCalls] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [selectedFolderFilter, setSelectedFolderFilter] = useState('');
   const [selectedCampaignFilter, setSelectedCampaignFilter] = useState('');
   const [selectedAssigneeFilter, setSelectedAssigneeFilter] = useState('');
@@ -287,8 +289,22 @@ export default function Dashboard() {
       const { data: folderData } = await supabase.from('lead_folders').select('id,name,active').eq('active', true).order('name');
       if (folderData) setFolders(folderData.map((folder) => folder.name));
 
-      const { data: followupData } = await supabase.from('followups').select('*, leads(name,phone)').order('followup_date', { ascending: true });
+      const { data: followupData } = await supabase.from('followups').select('*, leads(name,phone,status)').order('followup_date', { ascending: true });
       if (followupData) setFollowups(followupData || []);
+
+      if (can(role, PERMISSIONS.CALLS_VIEW)) {
+        const { data: callData } = await supabase.from('calls').select('id,lead_id,call_at,outcome,created_at').order('call_at', { ascending: false });
+        if (callData) setCalls(callData || []);
+      } else {
+        setCalls([]);
+      }
+
+      if (can(role, PERMISSIONS.APPOINTMENTS_VIEW)) {
+        const { data: appointmentData } = await supabase.from('appointments').select('id,lead_id,scheduled_at,status,type,created_at').order('scheduled_at', { ascending: true });
+        if (appointmentData) setAppointments(appointmentData || []);
+      } else {
+        setAppointments([]);
+      }
 
       if (canManageUsers(role)) {
         const { data: auditData } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50);
@@ -994,7 +1010,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'reports' && can(userRole, PERMISSIONS.REPORTS_VIEW) && (
-          <ReportsPanel leads={leads} tasks={tasks} deals={deals} reservations={reservations} payments={payments} followups={followups} calls={[]} appointments={[]} projects={projects} units={units} userRole={userRole} />
+          <ReportsPanel leads={leads} tasks={tasks} deals={deals} reservations={reservations} payments={payments} followups={followups} calls={calls} appointments={appointments} projects={projects} units={units} userRole={userRole} />
         )}
 
         {activeTab === 'list' && (
