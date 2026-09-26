@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const TABLES = Object.freeze({
-  leads: { permission: 'leads.update', create: 'leads.create', delete: 'leads.delete', fields: ['name','phone','email','lead_source','status','assigned_to','temperature','next_follow_up','budget','unit_type','preferred_area','desired_unit_type','folder','preferred_location','project_id','external_source','external_lead_id'] },
+  leads: { permission: 'leads.update', create: 'leads.create', fields: ['name','phone','email','lead_source','status','assigned_to','temperature','next_follow_up','budget','unit_type','preferred_area','desired_unit_type','folder','preferred_location','project_id','external_source','external_lead_id'] },
   followups: { permission: 'followups.manage', fields: ['lead_id','assigned_to','followup_date','type','status','notes'] },
   calls: { permission: 'calls.manage', fields: ['lead_id','assigned_to','call_at','duration_seconds','outcome','notes'] },
   appointments: { permission: 'appointments.manage', fields: ['lead_id','assigned_to','scheduled_at','type','status','notes'] },
@@ -53,8 +53,8 @@ async function allowed(service, role, permission) {
 }
 
 export default async function handler(req, res) {
-  if (!['POST','PATCH','DELETE'].includes(req.method)) {
-    res.setHeader('Allow', 'POST, PATCH, DELETE');
+  if (!['POST','PATCH'].includes(req.method)) {
+    res.setHeader('Allow', 'POST, PATCH');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -76,8 +76,8 @@ export default async function handler(req, res) {
   const config = TABLES[table];
   if (!config) return res.status(400).json({ error: 'Unsupported CRM table.' });
 
-  const action = req.method === 'POST' ? 'create' : req.method === 'PATCH' ? 'update' : 'delete';
-  const permission = action === 'create' ? (config.create || config.permission) : action === 'delete' ? config.delete || config.permission : config.permission;
+  const action = req.method === 'POST' ? 'create' : 'update';
+  const permission = action === 'create' ? (config.create || config.permission) : config.permission;
 
   if (!(await allowed(service, actor.role, permission))) {
     return res.status(403).json({ error: 'Permission denied.' });
