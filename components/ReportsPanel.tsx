@@ -1,107 +1,152 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import React, { useMemo } from 'react';
 import { can, PERMISSIONS } from '../lib/permissions';
+import { buildCrmMetrics, FORECAST_STAGE_WEIGHTS } from '../lib/crmMetrics';
 
-export default function ReportsPanel({ leads = [], tasks = [], userRole = 'sales' }) {
-  const [deals, setDeals] = useState([]);
-  const [reservations, setReservations] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [followups, setFollowups] = useState([]);
-  const [calls, setCalls] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [units, setUnits] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([
-      supabase.from('deals').select('deal_value,status,created_at'),
-      supabase.from('reservations').select('reservation_amount,status,created_at'),
-      supabase.from('deal_payments').select('amount,status,due_date'),
-      supabase.from('followups').select('status,followup_date'),
-      supabase.from('calls').select('call_at,outcome'),
-      supabase.from('appointments').select('scheduled_at,status'),
-      supabase.from('projects').select('id,name'),
-      supabase.from('units').select('id,status,price')
-    ]).then(([d,r,p,f,c,a,pr,u]) => {
-      if (!active) return;
-      setDeals(d.data || []);
-      setReservations(r.data || []);
-      setPayments(p.data || []);
-      setFollowups(f.data || []);
-      setCalls(c.data || []);
-      setAppointments(a.data || []);
-      setProjects(pr.data || []);
-      setUnits(u.data || []);
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, []);
-
-  const now = Date.now();
-  const wonValue = useMemo(() => deals.filter((d) => d.status === 'Won').reduce((a,d) => a + Number(d.deal_value || 0), 0), [deals]);
-  const reservedValue = useMemo(() => reservations.filter((r) => r.status !== 'Cancelled').reduce((a,r) => a + Number(r.reservation_amount || 0), 0), [reservations]);
-  const pendingPayments = useMemo(() => payments.filter((p) => p.status !== 'Paid' && p.status !== 'Cancelled').reduce((a,p) => a + Number(p.amount || 0), 0), [payments]);
-  const overduePayments = useMemo(() => payments.filter((p) => p.status === 'Overdue' || (p.status === 'Pending' && p.due_date && new Date(p.due_date).getTime() < now)).length, [payments, now]);
-  const pendingFollowups = useMemo(() => followups.filter((f) => f.status === 'Pending').length, [followups]);
-  const overdueFollowups = useMemo(() => followups.filter((f) => f.status === 'Pending' && f.followup_date && new Date(f.followup_date).getTime() < now).length, [followups, now]);
-  const upcomingAppointments = useMemo(() => appointments.filter((a) => a.status === 'Planned' && a.scheduled_at && new Date(a.scheduled_at).getTime() >= now).length, [appointments, now]);
-  const pipeline = useMemo(() => leads.reduce((m,l) => { const k=l.status || 'Unknown'; m[k]=(m[k]||0)+1; return m; }, {}), [leads]);
-  const sources = useMemo(() => leads.reduce((m,l) => { const k=l.lead_source || 'Unknown'; m[k]=(m[k]||0)+1; return m; }, {}), [leads]);
+export default function ReportsPanel({
+  leads = [],
+  tasks = [],
+  deals = [],
+  reservations = [],
+  payments = [],
+  followups = [],
+  calls = [],
+  appointments = [],
+  projects = [],
+  units = [],
+  userRole = 'sales'
+}) {
+  const metrics = useMemo(() => buildCrmMetrics({
+    leads,
+    deals,
+    reservations,
+    payments,
+    followups,
+    calls,
+    appointments,
+    projects,
+    units
+  }), [leads, deals, reservations, payments, followups, calls, appointments, projects, units]);
 
   const downloadCsv = () => {
     const rows = [
-      ['Metric','Value'],
-      ['Leads',leads.length],
-      ['Followups',followups.length],
-      ['Pending Followups',pendingFollowups],
-      ['Overdue Followups',overdueFollowups],
-      ['Calls',calls.length],
-      ['Appointments',appointments.length],
-      ['Upcoming Appointments',upcomingAppointments],
-      ['Projects',projects.length],
-      ['Units',units.length],
-      ['Deals',deals.length],
-      ['Won Deals Value',wonValue],
-      ['Reservations Value',reservedValue],
-      ['Pending Payments',pendingPayments],
-      ['Overdue Payments',overduePayments],
-      ...Object.entries(pipeline).map(([k,v])=>['Pipeline: '+k,v]),
-      ...Object.entries(sources).map(([k,v])=>['Lead Source: '+k,v])
+      ['Metric', 'Value'],
+      ['Active Leads', metrics.totalLeads],
+      ['Archived Leads', metrics.archivedLeadsCount],
+      ['Interested Leads', metrics.interestedCount],
+      ['Closed Won Leads', metrics.closedWonLeadCount],
+      ['Conversion Rate %', metrics.conversionRate.toFixed(1)],
+      ['Active Lead Budget', metrics.activeLeadBudget],
+      ['Weighted Pipeline Forecast', metrics.weightedPipelineForecast],
+      ['Followups', followups.length],
+      ['Pending Followups', metrics.pendingFollowups],
+      ['Overdue Followups', metrics.overdueFollowups],
+      ['Calls', calls.length],
+      ['Upcoming Appointments', metrics.upcomingAppointments],
+      ['Projects', projects.length],
+      ['Units', units.length],
+      ['Deals', deals.length],
+      ['Won Deal Value', metrics.wonDealValue],
+      ['Active Reservation Value', metrics.reservedValue],
+      ['Pending Payments', metrics.pendingPayments],
+      ['Overdue Payments', metrics.overduePayments],
+      ...Object.entries(metrics.pipeline).map(([key, value]) => ['Pipeline: ' + key, value]),
+      ...Object.entries(metrics.sources).map(([key, value]) => ['Lead Source: ' + key, value]),
+      ...Object.entries(metrics.temperatures).map(([key, value]) => ['Temperature: ' + key, value])
     ];
-    const csv='\uFEFF'+rows.map((row)=>row.map((x)=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='ARCOVA_Report.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    const csv = '\uFEFF' + rows
+      .map((row) => row.map((value) => '"' + String(value).replace(/"/g, '""') + '"').join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'ARCOVA_Report.csv';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
   };
 
-  const Card=({title,value})=><div style={{background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><div style={{color:'#806f56',fontSize:'0.72rem'}}>{title}</div><div style={{color:'#b08a4a',fontSize:'1.35rem',fontWeight:700,marginTop:'0.25rem'}}>{value}</div></div>;
-
-  if (loading) return <div style={{color:'#806f56'}}>جاري تحميل التقارير...</div>;
+  const Card = ({ title, value, hint }) => (
+    <div style={{ background:'#3f321f', border:'1px solid #d9c5a4', borderRadius:8, padding:'1rem' }}>
+      <div style={{ color:'#806f56', fontSize:'.72rem' }}>{title}</div>
+      <div style={{ color:'#b08a4a', fontSize:'1.3rem', fontWeight:700, marginTop:'.25rem' }}>{value}</div>
+      {hint && <div style={{ color:'#9a7b4b', fontSize:'.68rem', marginTop:'.3rem' }}>{hint}</div>}
+    </div>
+  );
 
   return (
-    <div style={{display:'grid',gap:'1rem'}}>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'0.7rem'}}>
-        <Card title='العملاء' value={leads.length}/>
-        <Card title='المتابعات المعلقة' value={pendingFollowups}/>
-        <Card title='المتابعات المتأخرة' value={overdueFollowups}/>
-        <Card title='المكالمات' value={calls.length}/>
-        <Card title='المواعيد القادمة' value={upcomingAppointments}/>
-        <Card title='المشاريع' value={projects.length}/>
-        <Card title='الوحدات' value={units.length}/>
-        <Card title='الصفقات الرابحة' value={wonValue.toLocaleString()+' ج'}/>
-        <Card title='الحجوزات' value={reservedValue.toLocaleString()+' ج'}/>
-        <Card title='دفعات مستحقة' value={pendingPayments.toLocaleString()+' ج'}/>
-        <Card title='دفعات متأخرة' value={overduePayments}/>
+    <div style={{ display:'grid', gap:'1rem' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'.7rem' }}>
+        <Card title='العملاء الفعّالون' value={metrics.totalLeads} hint={'منهم ' + metrics.archivedLeadsCount + ' مؤرشف'} />
+        <Card title='مهتم جداً' value={metrics.interestedCount} />
+        <Card title='نسبة التحويل' value={metrics.conversionRate.toFixed(1) + '%'} />
+        <Card title='قيمة الصفقات الرابحة' value={metrics.wonDealValue.toLocaleString() + ' ج'} />
+        <Card title='قيمة الحجوزات النشطة' value={metrics.reservedValue.toLocaleString() + ' ج'} />
+        <Card title='دفعات مستحقة' value={metrics.pendingPayments.toLocaleString() + ' ج'} />
+        <Card title='دفعات متأخرة' value={metrics.overduePayments} />
+        <Card
+          title='Forecast مرجّح'
+          value={metrics.weightedPipelineForecast.toLocaleString() + ' ج'}
+          hint='Budget × احتمال المرحلة'
+        />
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'1rem'}}>
-        <div style={{background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><h4 style={{color:'#b08a4a',marginTop:0}}>Pipeline</h4>{Object.entries(pipeline).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'.3rem 0',borderBottom:'1px solid #d9c5a4',fontSize:'.78rem'}}><span>{k}</span><strong>{v}</strong></div>)}</div>
-        <div style={{background:'#3f321f',border:'1px solid #d9c5a4',borderRadius:'8px',padding:'1rem'}}><h4 style={{color:'#b08a4a',marginTop:0}}>مصادر العملاء</h4>{Object.entries(sources).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'.3rem 0',borderBottom:'1px solid #d9c5a4',fontSize:'.78rem'}}><span>{k}</span><strong>{v}</strong></div>)}</div>
+      <div style={{ background:'#fffaf0', border:'1px solid #d9c5a4', borderRadius:10, padding:'1rem' }}>
+        <h4 style={{ color:'#765522', marginTop:0, marginBottom:'.6rem' }}>Forecasting</h4>
+        <div style={{ color:'#806f56', fontSize:'.78rem', lineHeight:1.7 }}>
+          التوقع هنا ليس صفقة مؤكدة؛ هو قيمة مرجّحة من ميزانيات العملاء النشطين حسب المرحلة الحالية.
+          الأوزان الافتراضية: {Object.entries(FORECAST_STAGE_WEIGHTS).map(([stage, weight]) => stage + ' ' + Math.round(weight * 100) + '%').join(' · ')}.
+        </div>
       </div>
 
-      {can(userRole, PERMISSIONS.REPORTS_EXPORT) && <button type='button' onClick={downloadCsv} style={{justifySelf:'start',padding:'.55rem .9rem',background:'#b08a4a',color:'#fffaf0',border:0,borderRadius:'5px',fontWeight:700}}>تصدير التقرير CSV</button>}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:'1rem' }}>
+        <div style={{ background:'#3f321f', border:'1px solid #d9c5a4', borderRadius:8, padding:'1rem' }}>
+          <h4 style={{ color:'#b08a4a', marginTop:0 }}>Pipeline</h4>
+          {Object.entries(metrics.pipeline).map(([key, value]) => (
+            <div key={key} style={{ display:'flex', justifyContent:'space-between', padding:'.3rem 0', borderBottom:'1px solid #d9c5a4', fontSize:'.78rem' }}>
+              <span>{key}</span><strong>{value}</strong>
+            </div>
+          ))}
+          {!Object.keys(metrics.pipeline).length && <div style={{ color:'#9a7b4b', fontSize:'.78rem' }}>لا توجد بيانات.</div>}
+        </div>
+        <div style={{ background:'#3f321f', border:'1px solid #d9c5a4', borderRadius:8, padding:'1rem' }}>
+          <h4 style={{ color:'#b08a4a', marginTop:0 }}>مصادر العملاء</h4>
+          {Object.entries(metrics.sources).map(([key, value]) => (
+            <div key={key} style={{ display:'flex', justifyContent:'space-between', padding:'.3rem 0', borderBottom:'1px solid #d9c5a4', fontSize:'.78rem' }}>
+              <span>{key}</span><strong>{value}</strong>
+            </div>
+          ))}
+          {!Object.keys(metrics.sources).length && <div style={{ color:'#9a7b4b', fontSize:'.78rem' }}>لا توجد بيانات.</div>}
+        </div>
+        <div style={{ background:'#3f321f', border:'1px solid #d9c5a4', borderRadius:8, padding:'1rem' }}>
+          <h4 style={{ color:'#b08a4a', marginTop:0 }}>درجات الحرارة</h4>
+          {Object.entries(metrics.temperatures).map(([key, value]) => (
+            <div key={key} style={{ display:'flex', justifyContent:'space-between', padding:'.3rem 0', borderBottom:'1px solid #d9c5a4', fontSize:'.78rem' }}>
+              <span>{key}</span><strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'.7rem' }}>
+        <Card title='المتابعات المعلقة' value={metrics.pendingFollowups} />
+        <Card title='المتابعات المتأخرة' value={metrics.overdueFollowups} />
+        <Card title='المكالمات' value={calls.length} />
+        <Card title='المواعيد القادمة' value={metrics.upcomingAppointments} />
+        <Card title='المشاريع' value={projects.length} />
+        <Card title='الوحدات' value={units.length} />
+      </div>
+
+      {can(userRole, PERMISSIONS.REPORTS_EXPORT) && (
+        <button
+          type='button'
+          onClick={downloadCsv}
+          style={{ justifySelf:'start', padding:'.55rem .9rem', background:'#b08a4a', color:'#fffaf0', border:0, borderRadius:5, fontWeight:700 }}
+        >
+          تصدير التقرير CSV
+        </button>
+      )}
     </div>
   );
 }
