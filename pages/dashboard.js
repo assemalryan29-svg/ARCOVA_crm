@@ -42,6 +42,29 @@ async function crmCancelPendingFollowups(leadId) {
   if (!response.ok) console.error('Failed to cancel pending followups');
 }
 
+async function crmRecordAction(table, id, mode, leadId = null) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) return { ok: false, error: 'انتهت الجلسة. سجل الدخول مرة أخرى.' };
+
+  try {
+    const response = await fetch('/api/records/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({ table, id, mode, lead_id: leadId })
+    });
+    const result = await response.json().catch(() => ({}));
+    return response.ok
+      ? { ok: true, result }
+      : { ok: false, error: result.error || 'فشلت العملية.' };
+  } catch (error) {
+    return { ok: false, error: error.message || 'تعذر الاتصال بالخادم.' };
+  }
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -68,6 +91,7 @@ export default function Dashboard() {
   const [selectedCampaignFilter, setSelectedCampaignFilter] = useState('');
   const [selectedAssigneeFilter, setSelectedAssigneeFilter] = useState('');
   const [selectedTemperatureFilter, setSelectedTemperatureFilter] = useState('');
+  const [leadViewFilter, setLeadViewFilter] = useState('active');
   const [newFolderName, setNewFolderName] = useState('');
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 
@@ -766,40 +790,40 @@ export default function Dashboard() {
   };
 
   const handleArchiveLead = async (lead = selectedLead) => {
-    if (!lead || !can(userRole, PERMISSIONS.LEADS_UPDATE)) return;
-    const confirmed = window.confirm('هل تريد أرشفة العميل "' + (lead.name || 'بدون اسم') + '"؟ سيختفي من القائمة الحالية ويمكن الاحتفاظ به في قاعدة البيانات.');
-    if (!confirmed) return;
+    if (!lead || !can(userRole, PERMISSIONS.LEADS_UPDATE) || lead.status === 'Archived') return;
+    if (!window.confirm('هل تريد أرشفة العميل "' + (lead.name || 'بدون اسم') + '"؟ سيختفي من القائمة الحالية مع الاحتفاظ به في النظام.')) return;
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        alert('انتهت الجلسة. سجل الدخول مرة أخرى.');
-        return;
-      }
+    const result = await crmRecordAction('leads', lead.id, 'archive');
+    if (!result.ok) return alert('فشل أرشفة العميل: ' + result.error);
 
-      const response = await fetch('/api/records/delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + session.access_token
-        },
-        body: JSON.stringify({ table: 'leads', id: lead.id, mode: 'archive' })
-      });
+    await crmCancelPendingFollowups(lead.id);
+    setLeads(prev => prev.map(item => item.id === lead.id ? { ...item, status: 'Archived', next_follow_up: null } : item));
+    setSelectedLead(prev => prev?.id === lead.id ? null : prev);
+    fetchData();
+  };
 
-      const result = await response.json();
-      if (!response.ok) {
-        alert('فشل أرشفة العميل: ' + (result.error || 'خطأ غير معروف'));
-        return;
-      }
+  const handleRestoreLead = async (lead = selectedLead) => {
+    if (!lead || !can(userRole, PERMISSIONS.LEADS_UPDATE) || lead.status !== 'Archived') return;
+    if (!window.confirm('إلغاء أرشفة العميل "' + (lead.name || 'بدون اسم') + '"؟ سيعود كـ "عميل جديد".')) return;
 
-      await crmCancelPendingFollowups(lead.id);
-      setLeads(prev => prev.map(item => item.id === lead.id ? { ...item, status: 'Archived', next_follow_up: null } : item));
-      setSelectedLead(prev => prev?.id === lead.id ? null : prev);
-      alert('تمت أرشفة العميل بنجاح');
-      fetchData();
-    } catch (err) {
-      alert('تعذر الاتصال بالخادم: ' + err.message);
-    }
+    const result = await crmRecordAction('leads', lead.id, 'restore');
+    if (!result.ok) return alert('فشل إلغاء الأرشفة: ' + result.error);
+
+    setLeads(prev => prev.map(item => item.id === lead.id ? { ...item, status: 'New Lead' } : item));
+    setSelectedLead(null);
+    fetchData();
+  };
+
+  const handlePermanentDeleteLead = async (lead = selectedLead) => {
+    if (!lead || userRole !== 'admin') return;
+    if (!window.confirm('⚠️ حذف نهائي للعميل "' + (lead.name || 'بدون اسم') + '"؟\\n\\nسيتم حذف السجل نهائيًا ولا يمكن التراجع عن العملية.')) return;
+
+    const result = await crmRecordAction('leads', lead.id, 'permanent');
+    if (!result.ok) return alert('فشل الحذف النهائي: ' + result.error);
+
+    setLeads(prev => prev.filter(item => item.id !== lead.id));
+    setSelectedLead(null);
+    fetchData();
   };
 
   // تصفية العملاء
@@ -818,7 +842,14 @@ export default function Dashboard() {
       matchesCampaignOrProject = l.lead_source === 'Marketing' || l.assigned_to === currentUser.id;
     }
 
-    return l.status !== 'Archived' && matchesSearch && matchesFolder && matchesAssignee && matchesTemperature && matchesCampaignOrProject;
+    const matchesArchive =
+      leadViewFilter === 'archived'
+        ? l.status === 'Archived'
+        : leadViewFilter === 'all'
+          ? true
+          : l.status !== 'Archived';
+
+    return matchesArchive && matchesSearch && matchesFolder && matchesAssignee && matchesTemperature && matchesCampaignOrProject;
   });
 
   const todayStr = (() => { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; })();
@@ -1090,6 +1121,17 @@ export default function Dashboard() {
                 </select>
 
                 {/* شريط البحث */}
+                <select
+                  value={leadViewFilter}
+                  onChange={(e) => setLeadViewFilter(e.target.value)}
+                  style={{ padding: '0.5rem 0.7rem', backgroundColor: '#f5efe3', border: '1px solid #d9c5a4', color: '#765522', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}
+                  aria-label="حالة عرض العملاء"
+                >
+                  <option value="active">العملاء الحاليون</option>
+                  <option value="archived">الأرشيف</option>
+                  <option value="all">الكل</option>
+                </select>
+
                 <input 
                   type="text" 
                   placeholder="🔍 بحث باسم العميل أو الهاتف..." 
@@ -1131,6 +1173,8 @@ export default function Dashboard() {
                    onTemperatureChange={handleUpdateLeadTemperature}
                   onFolderChange={handleLeadCardFolderOrAssignment}
                   onArchive={handleArchiveLead}
+                  onRestore={handleRestoreLead}
+                  onPermanentDelete={handlePermanentDeleteLead}
                 />
               ))}
               {!filteredLeads.length && (
@@ -1204,8 +1248,14 @@ export default function Dashboard() {
                       </td>
                       <td style={{ padding: '0.8rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                         <button onClick={() => handleOpenLeadDetails(lead)} title="تفاصيل وفيدباك" style={{ padding: '0.3rem 0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>التفاصيل</button>
-                        {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
+                        {lead.status === 'Archived' && can(userRole, PERMISSIONS.LEADS_UPDATE) && (
+                          <button type="button" onClick={() => handleRestoreLead(lead)} title="إلغاء الأرشفة" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#eefbf3', color: '#176b4d', border: '1px solid #9ad1b4', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>↩️</button>
+                        )}
+                        {lead.status !== 'Archived' && can(userRole, PERMISSIONS.LEADS_UPDATE) && (
                           <button type="button" onClick={() => handleArchiveLead(lead)} title="أرشفة العميل" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#fff7f2', color: '#a7352b', border: '1px solid #d9a07a', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>🗑️</button>
+                        )}
+                        {userRole === 'admin' && (
+                          <button type="button" onClick={() => handlePermanentDeleteLead(lead)} title="حذف نهائي" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#fff1f2', color: '#991b1b', border: '1px solid #e5a3aa', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>حذف نهائي</button>
                         )}
                         <a href={`/customer360?lead_id=${encodeURIComponent(lead.id)}`} title="Customer 360" style={{ padding: '0.3rem 0.55rem', backgroundColor: '#f5efe3', color: '#765522', border: '1px solid #d9c5a4', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.75rem' }}>360°</a>
 
@@ -1439,8 +1489,14 @@ export default function Dashboard() {
               {userRole === 'admin' ? selectedLead.phone : `******${(selectedLead.phone || '').slice(-4)}`} | {selectedLead.email || 'بدون إيميل'}
             </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
-                {can(userRole, PERMISSIONS.LEADS_UPDATE) && (
+                {selectedLead?.status === 'Archived' && can(userRole, PERMISSIONS.LEADS_UPDATE) && (
+                  <button type="button" onClick={() => handleRestoreLead(selectedLead)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#eefbf3', color: '#176b4d', border: '1px solid #9ad1b4', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>↩️ إلغاء الأرشفة</button>
+                )}
+                {selectedLead?.status !== 'Archived' && can(userRole, PERMISSIONS.LEADS_UPDATE) && (
                   <button type="button" onClick={handleArchiveLead} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b45309', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} title="إخفاء العميل من القائمة الحالية مع الاحتفاظ به في الأرشيف">🗄️ أرشفة العميل</button>
+                )}
+                {userRole === 'admin' && (
+                  <button type="button" onClick={() => handlePermanentDeleteLead(selectedLead)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff1f2', color: '#991b1b', border: '1px solid #e5a3aa', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>حذف نهائي</button>
                 )}
                 <a href={`/customer360?lead_id=${encodeURIComponent(selectedLead.id)}`} style={{ padding:'0.4rem 0.8rem', backgroundColor:'#f5efe3', color:'#765522', border:'1px solid #d9c5a4', borderRadius:'4px', textDecoration:'none', fontSize:'0.8rem', fontWeight:'bold' }}>360° الملف الكامل</a>
               </div>
