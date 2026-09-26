@@ -42,6 +42,16 @@ const PERMANENT_DELETE_TABLES = new Set([
 
 const PERMANENT_DELETE_ROLES = new Set(['admin']);
 
+const RESTORE_STATUS = Object.freeze({
+  leads: 'New Lead',
+  tasks: 'Pending',
+  calls: 'Completed',
+  followups: 'Pending',
+  appointments: 'Planned',
+});
+
+const RESTOREABLE_TABLES = new Set(Object.keys(RESTORE_STATUS));
+
 function getClient(key, token = '') {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -89,7 +99,7 @@ export default async function handler(req, res) {
 
   const { table, id, lead_id: leadId, mode = 'archive' } = req.body || {};
   if (!TABLES.has(table) || !id) return res.status(400).json({ error: 'Invalid table or record id' });
-  if (!['archive', 'permanent'].includes(mode)) return res.status(400).json({ error: 'Invalid deletion mode' });
+  if (!['archive', 'restore', 'permanent'].includes(mode)) return res.status(400).json({ error: 'Invalid record action mode' });
 
   const supabase = getClient(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, token);
   const { data: authData, error: authError } = await supabase.auth.getUser(token);
@@ -108,6 +118,37 @@ export default async function handler(req, res) {
   const permissionKey = PERMISSION_BY_TABLE[table];
   if (!(await hasPermission(supabase, role, permissionKey))) {
     return res.status(403).json({ error: 'You do not have permission for this record.' });
+  }
+
+  if (mode === 'restore') {
+    if (!RESTOREABLE_TABLES.has(table)) {
+      return res.status(400).json({ error: 'Restore is not supported for this record type.' });
+    }
+    if (!(await hasPermission(supabase, role, permissionKey))) {
+      return res.status(403).json({ error: 'You do not have permission to restore this record.' });
+    }
+
+    const restoreStatus = RESTORE_STATUS[table];
+    let query = supabase.from(table)
+      .update({ status: restoreStatus })
+      .eq('id', id);
+
+    if (leadId && ['calls', 'followups', 'appointments'].includes(table)) {
+      query = query.eq('lead_id', leadId);
+    }
+
+    const { data, error } = await query.select('id,status').maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Archived record not found or access denied.' });
+
+    await supabase.from('audit_logs').insert([{
+      user_id: authData.user.id,
+      action: 'RESTORE',
+      table_name: table,
+      details: { record_id: id, mode, role, restored_status: restoreStatus },
+    }]);
+
+    return res.status(200).json({ ok: true, table, id, mode, action: 'RESTORE', restored_status: restoreStatus });
   }
 
   if (mode === 'permanent') {
