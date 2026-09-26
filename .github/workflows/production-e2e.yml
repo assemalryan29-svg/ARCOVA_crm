@@ -32,10 +32,13 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Playwright
-        run: npx --yes playwright@1.55.0 install --with-deps chromium
+      - name: Install Playwright test runner
+        run: npm install --no-save --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run production browser smoke tests
         env:
           E2E_BASE_URL: https://arcova-crm.vercel.app
-        run: npx --yes playwright@1.55.0 test --config=playwright.production.config.mjs
+        run: npx playwright test --config=playwright.production.config.mjs
