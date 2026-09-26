@@ -11,6 +11,7 @@ import DailyBrief from '../components/DailyBrief';
 import { normalizeRole, getLeadScope, canManageUsers, canManageTeam, canManageInventory, can, getRoleLabel, PERMISSIONS } from '../lib/permissions';
 import { getCurrentIdentity } from '../lib/auth';
 import { validateLeadInput, isDuplicateLead } from '../lib/leadValidation';
+import { buildCrmMetrics } from '../lib/crmMetrics';
 
 async function crmMutation(method, table, data, id = null) {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -52,6 +53,8 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [units, setUnits] = useState([]);
   const [deals, setDeals] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -254,9 +257,25 @@ export default function Dashboard() {
       const { data: unitData } = await supabase.from('units').select('*, projects(name)').order('created_at', { ascending: false });
       if (unitData) setUnits(unitData || []);
 
-      if (can(userRole, PERMISSIONS.DEALS_VIEW)) {
-        const { data: dealData } = await supabase.from('deals').select('id,deal_value,status,sales_person,created_at').order('created_at', { ascending: false });
+      if (can(role, PERMISSIONS.DEALS_VIEW)) {
+        const { data: dealData } = await supabase.from('deals').select('id,lead_id,unit_id,deal_value,status,sales_person,created_at').order('created_at', { ascending: false });
         if (dealData) setDeals(dealData || []);
+      } else {
+        setDeals([]);
+      }
+
+      if (can(role, PERMISSIONS.RESERVATIONS_VIEW)) {
+        const { data: reservationData } = await supabase.from('reservations').select('id,lead_id,unit_id,reservation_amount,status,created_at').order('created_at', { ascending: false });
+        if (reservationData) setReservations(reservationData || []);
+      } else {
+        setReservations([]);
+      }
+
+      if (can(role, PERMISSIONS.FINANCE_VIEW)) {
+        const { data: paymentData } = await supabase.from('deal_payments').select('id,deal_id,installment_no,due_date,amount,paid_at,status').order('due_date', { ascending: true });
+        if (paymentData) setPayments(paymentData || []);
+      } else {
+        setPayments([]);
       }
 
       const { data: taskData } = await supabase.from('tasks').select('*, leads(name)').order('created_at', { ascending: false });
@@ -789,12 +808,23 @@ export default function Dashboard() {
   const todayStr = (() => { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; })();
   const dueFollowUps = followups.filter((f) => f.status === 'Pending' && f.followup_date && new Date(f.followup_date).toISOString().slice(0, 10) <= todayStr);
 
-  const activeLeads = leads.filter(l => l.status !== 'Archived');
-  const totalLeadsCount = activeLeads.length;
-  const interestedCount = activeLeads.filter(l => l.status === 'Interested').length;
-  const closedWonCount = activeLeads.filter(l => l.status === 'Closed Won').length;
-  const conversionRate = totalLeadsCount > 0 ? ((closedWonCount / totalLeadsCount) * 100).toFixed(1) : 0;
-  const totalDealsValue = deals.filter(d => d.status === 'Won').reduce((acc, deal) => acc + Number(deal.deal_value || 0), 0);
+  const metrics = buildCrmMetrics({
+    leads,
+    deals,
+    reservations,
+    payments,
+    followups,
+    projects,
+    units,
+    now: Date.now()
+  });
+  const activeLeads = metrics.activeLeads;
+  const totalLeadsCount = metrics.totalLeads;
+  const interestedCount = metrics.interestedCount;
+  const closedWonCount = metrics.closedWonLeadCount;
+  const conversionRate = metrics.conversionRate.toFixed(1);
+  const totalDealsValue = metrics.wonDealValue;
+  const weightedPipelineForecast = metrics.weightedPipelineForecast;
 
   const visibleViews = [
     ['overview', PERMISSIONS.DASHBOARD_VIEW],
@@ -944,8 +974,12 @@ export default function Dashboard() {
             <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#60a5fa', marginTop: '0.3rem' }}>{conversionRate}%</div>
           </div>
           <div style={{ backgroundColor: '#fffaf0', border: '1px solid #d9c5a4', borderRight: '4px solid #a855f7', padding: '1rem', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.75rem', color: '#806f56' }}>إجمالي الصفقات</div>
+            <div style={{ fontSize: '0.75rem', color: '#806f56' }}>قيمة الصفقات الرابحة</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#a855f7', marginTop: '0.3rem' }}>{totalDealsValue.toLocaleString()} ج</div>
+          </div>
+          <div style={{ backgroundColor: '#fffaf0', border: '1px solid #d9c5a4', borderRight: '4px solid #0f766e', padding: '1rem', borderRadius: '6px' }}>
+            <div style={{ fontSize: '0.75rem', color: '#806f56' }}>Forecast مرجّح</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#0f766e', marginTop: '0.3rem' }}>{weightedPipelineForecast.toLocaleString()} ج</div>
           </div>
           </div>
         </>
@@ -960,7 +994,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'reports' && can(userRole, PERMISSIONS.REPORTS_VIEW) && (
-          <ReportsPanel leads={leads} tasks={tasks} userRole={userRole} />
+          <ReportsPanel leads={leads} tasks={tasks} deals={deals} reservations={reservations} payments={payments} followups={followups} calls={[]} appointments={[]} projects={projects} units={units} userRole={userRole} />
         )}
 
         {activeTab === 'list' && (
