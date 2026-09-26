@@ -73,8 +73,8 @@ async function authorize(supabase, userId, table) {
 }
 
 export default async function handler(req, res) {
-  if (!['POST', 'PATCH', 'DELETE'].includes(req.method)) {
-    res.setHeader('Allow', 'POST, PATCH, DELETE');
+  if (!['POST', 'PATCH'].includes(req.method)) {
+    res.setHeader('Allow', 'POST, PATCH');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -98,24 +98,6 @@ export default async function handler(req, res) {
   }
   if (!auth.allowed) return res.status(auth.status).json({ error: auth.error });
 
-  if (req.method === 'DELETE') {
-    let query = supabase.from(table).delete().eq('id', id);
-    if (leadId && ['calls', 'followups', 'appointments', 'reservations', 'deals'].includes(table)) {
-      query = query.eq('lead_id', leadId);
-    }
-    const { data, error } = await query.select('id');
-    if (error) return res.status(400).json({ error: error.message });
-    if (!data?.length) return res.status(404).json({ error: 'Record not found or access denied.' });
-
-    await supabase.from('audit_logs').insert([{
-      user_id: userData.user.id,
-      action: `${table.toUpperCase()}_DELETED`,
-      table_name: table,
-      details: { record_id: id, lead_id: leadId || null, role: auth.role },
-    }]);
-
-    return res.status(200).json({ ok: true, data: data[0] });
-  }
 
   if (req.method === 'PATCH') {
     const patch = pick(req.body?.patch, UPDATE_FIELDS[table]);
