@@ -10,6 +10,20 @@ async function crmMutation(method, body) {
   if (!response.ok) throw new Error(result.error || 'فشلت العملية.');
   return result;
 }
+
+async function crmRecordAction(id, mode) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error('انتهت الجلسة.');
+  const response = await fetch('/api/records/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ table: 'followups', id, mode })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'فشلت العملية.');
+  return result;
+}
 import { can, PERMISSIONS } from '../lib/permissions';
 
 const statusOptions = ['Pending','Done','Cancelled'];
@@ -146,6 +160,15 @@ export default function FollowupsPanel({ currentUser, userRole, leads = [] }) {
                 {phone&&<a href={'tel:'+phone} style={{minHeight:40,display:'grid',placeItems:'center',borderRadius:9,background:'#eaf6ef',color:'#176b4d',textDecoration:'none',fontWeight:800}}>📞 اتصال</a>}
                 {phone&&<a href={'https://wa.me/'+phone} target='_blank' rel='noreferrer' style={{minHeight:40,display:'grid',placeItems:'center',borderRadius:9,background:'#eaf6ef',color:'#176b4d',textDecoration:'none',fontWeight:800}}>🟢 واتساب</a>}
                 {can(userRole,PERMISSIONS.FOLLOWUPS_MANAGE)&&f.status==='Pending'&&<><button type='button' disabled={busy} onClick={()=>updateStatusAndSyncLead(f,'Done')} style={{minHeight:40,border:0,borderRadius:9,background:'#176b4d',color:'#fff',fontWeight:800}}>✅ تمت</button><button type='button' disabled={busy} onClick={()=>snoozeOneDay(f)} style={{minHeight:40,border:'1px solid #d9c5a4',borderRadius:9,background:'#fffaf0',color:'#765522',fontWeight:800}}>⏭️ تأجيل يوم</button><button type='button' disabled={busy} onClick={()=>updateStatusAndSyncLead(f,'Cancelled')} style={{minHeight:40,border:'1px solid #e2c0aa',borderRadius:9,background:'#fff7f2',color:'#a7352b',fontWeight:800}}>إلغاء</button></>}
+                {userRole === 'admin' && (
+                  <button type='button' disabled={busy} onClick={async()=>{
+                    if(!window.confirm('حذف نهائي للمتابعة؟ لا يمكن التراجع.')) return;
+                    setBusy(true);
+                    try { await crmRecordAction(f.id,'permanent'); await load(); }
+                    catch(error){ alert('فشل الحذف النهائي: '+error.message); }
+                    finally { setBusy(false); }
+                  }} style={{minHeight:40,border:'1px solid #e5a3aa',borderRadius:9,background:'#fff1f2',color:'#991b1b',fontWeight:800}}>حذف نهائي</button>
+                )}
               </div>
             </article>;
           })}
