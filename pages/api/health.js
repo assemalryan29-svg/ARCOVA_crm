@@ -19,7 +19,6 @@ export default async function handler(req, res) {
         method: 'GET',
         headers: {
           apikey: publicKey,
-          Authorization: `Bearer ${publicKey}`,
         },
         cache: 'no-store',
       });
