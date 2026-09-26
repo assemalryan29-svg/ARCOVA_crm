@@ -1,0 +1,45 @@
+name: ARCOVA Production E2E
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for production health
+        shell: bash
+        run: |
+          for i in {1..24}; do
+            if curl -fsS https://arcova-crm.vercel.app/api/health >/tmp/health.json; then
+              cat /tmp/health.json
+              if grep -q '"ok":true' /tmp/health.json; then
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Production health did not become ready."
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Run production browser smoke tests
+        env:
+          E2E_BASE_URL: https://arcova-crm.vercel.app
+        run: npx --yes playwright@1.55.0 test --config=playwright.production.config.mjs
