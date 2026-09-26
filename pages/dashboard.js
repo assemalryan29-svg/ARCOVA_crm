@@ -51,6 +51,7 @@ export default function Dashboard() {
   const [leadLogs, setLeadLogs] = useState([]);
   const [projects, setProjects] = useState([]);
   const [units, setUnits] = useState([]);
+  const [deals, setDeals] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -252,6 +253,11 @@ export default function Dashboard() {
 
       const { data: unitData } = await supabase.from('units').select('*, projects(name)').order('created_at', { ascending: false });
       if (unitData) setUnits(unitData || []);
+
+      if (can(userRole, PERMISSIONS.DEALS_VIEW)) {
+        const { data: dealData } = await supabase.from('deals').select('id,deal_value,status,sales_person,created_at').order('created_at', { ascending: false });
+        if (dealData) setDeals(dealData || []);
+      }
 
       const { data: taskData } = await supabase.from('tasks').select('*, leads(name)').order('created_at', { ascending: false });
       if (taskData) setTasks(taskData || []);
@@ -788,7 +794,7 @@ export default function Dashboard() {
   const interestedCount = activeLeads.filter(l => l.status === 'Interested').length;
   const closedWonCount = activeLeads.filter(l => l.status === 'Closed Won').length;
   const conversionRate = totalLeadsCount > 0 ? ((closedWonCount / totalLeadsCount) * 100).toFixed(1) : 0;
-  const totalDealsValue = activeLeads.filter(l => l.status === 'Closed Won' && l.budget).reduce((acc, curr) => acc + Number(curr.budget), 0);
+  const totalDealsValue = deals.filter(d => d.status === 'Won').reduce((acc, deal) => acc + Number(deal.deal_value || 0), 0);
 
   const visibleViews = [
     ['overview', PERMISSIONS.DASHBOARD_VIEW],
