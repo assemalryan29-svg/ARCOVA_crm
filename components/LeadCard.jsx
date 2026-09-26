@@ -50,7 +50,9 @@ export default function LeadCard({
   onStatusChange,
   onTemperatureChange,
   onFolderChange,
-  onArchive
+  onArchive,
+  onRestore,
+  onPermanentDelete
 }) {
   const phone = String(lead.phone || '').replace(/[^0-9+]/g, '');
   const whatsappPhone = String(lead.phone || '').replace(/[^0-9]/g, '');
@@ -158,9 +160,21 @@ export default function LeadCard({
           التفاصيل
         </button>
 
-        {canArchive && (
+        {lead.status === 'Archived' && canArchive && (
+          <button type="button" onClick={() => onRestore?.(lead)} style={{ minHeight: 44, border: '1px solid #9ad1b4', borderRadius: 10, background: '#eefbf3', color: '#176b4d', fontWeight: 800, cursor: 'pointer' }}>
+            ↩️ إلغاء الأرشفة
+          </button>
+        )}
+
+        {lead.status !== 'Archived' && canArchive && (
           <button type="button" onClick={() => onArchive(lead)} style={{ minHeight: 44, border: `1px solid #d9a07a`, borderRadius: 10, background: '#fff6ef', color: COLORS.danger, fontWeight: 800, cursor: 'pointer' }}>
-            🗑️ أرشفة
+            🗄️ أرشفة
+          </button>
+        )}
+
+        {userRole === 'admin' && (
+          <button type="button" onClick={() => onPermanentDelete?.(lead)} style={{ minHeight: 44, border: '1px solid #e5a3aa', borderRadius: 10, background: '#fff1f2', color: '#991b1b', fontWeight: 800, cursor: 'pointer' }}>
+            حذف نهائي
           </button>
         )}
 
