@@ -104,12 +104,9 @@ export default async function handler(req, res) {
     const id = String(body.id || '');
     if (!id) return res.status(400).json({ error: 'Record id is required.' });
 
-    if (action === 'update') {
-      const payload = cleanPayload(table, body.data);
-      result = await writeClient.from(table).update(payload).eq('id', id).select('*').maybeSingle();
-    } else {
-      result = await writeClient.from(table).delete().eq('id', id).select('id').maybeSingle();
-    }
+    const payload = cleanPayload(table, body.data);
+    if (!Object.keys(payload).length) return res.status(400).json({ error: 'No editable fields supplied.' });
+    result = await writeClient.from(table).update(payload).eq('id', id).select('*').maybeSingle();
   }
 
   if (result.error) {
