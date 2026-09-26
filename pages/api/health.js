@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const publicKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const publicKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   const checks = {
     supabase_url: Boolean(supabaseUrl),
@@ -15,14 +15,14 @@ export default async function handler(req, res) {
 
   if (supabaseUrl && publicKey) {
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+      const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
         method: 'GET',
         headers: {
           apikey: publicKey,
         },
         cache: 'no-store',
       });
-      checks.supabase_api = response.ok || response.status === 404;
+      checks.supabase_api = response.ok;
     } catch {
       checks.supabase_api = false;
     }
