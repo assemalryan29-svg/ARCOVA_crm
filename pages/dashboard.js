@@ -92,6 +92,7 @@ export default function Dashboard() {
   const [selectedAssigneeFilter, setSelectedAssigneeFilter] = useState('');
   const [selectedTemperatureFilter, setSelectedTemperatureFilter] = useState('');
   const [leadViewFilter, setLeadViewFilter] = useState('active');
+  const [taskViewFilter, setTaskViewFilter] = useState('active');
   const [newFolderName, setNewFolderName] = useState('');
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
 
@@ -789,6 +790,34 @@ export default function Dashboard() {
     if (!error) { alert('تم حفظ الخطة المالية في ملف العميل'); fetchLeadLogs(selectedLead.id); }
   };
 
+  const handleArchiveTask = async (task) => {
+    if (!task || !can(userRole, PERMISSIONS.TASKS_MANAGE) || task.status === 'Archived') return;
+    if (!window.confirm('أرشفة المهمة "' + (task.title || 'بدون عنوان') + '"؟')) return;
+
+    const result = await crmRecordAction('tasks', task.id, 'archive');
+    if (!result.ok) return alert('فشل أرشفة المهمة: ' + result.error);
+
+    setTasks(prev => prev.map(item => item.id === task.id ? { ...item, status: 'Archived' } : item));
+  };
+
+  const handleRestoreTask = async (task) => {
+    if (!task || !can(userRole, PERMISSIONS.TASKS_MANAGE) || task.status !== 'Archived') return;
+    const result = await crmRecordAction('tasks', task.id, 'restore');
+    if (!result.ok) return alert('فشل إلغاء أرشفة المهمة: ' + result.error);
+
+    setTasks(prev => prev.map(item => item.id === task.id ? { ...item, status: 'Pending' } : item));
+  };
+
+  const handlePermanentDeleteTask = async (task) => {
+    if (!task || userRole !== 'admin') return;
+    if (!window.confirm('حذف نهائي للمهمة؟ لا يمكن التراجع.')) return;
+
+    const result = await crmRecordAction('tasks', task.id, 'permanent');
+    if (!result.ok) return alert('فشل الحذف النهائي: ' + result.error);
+
+    setTasks(prev => prev.filter(item => item.id !== task.id));
+  };
+
   const handleArchiveLead = async (lead = selectedLead) => {
     if (!lead || !can(userRole, PERMISSIONS.LEADS_UPDATE) || lead.status === 'Archived') return;
     if (!window.confirm('هل تريد أرشفة العميل "' + (lead.name || 'بدون اسم') + '"؟ سيختفي من القائمة الحالية مع الاحتفاظ به في النظام.')) return;
@@ -1292,7 +1321,18 @@ export default function Dashboard() {
         {activeTab === 'tasks' && can(userRole, PERMISSIONS.TASKS_VIEW) && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة المهام والأنشطة</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap' }}>
+                <h3 style={{ color: '#b08a4a', fontFamily: 'serif', fontSize: '1.1rem', margin: 0 }}>إدارة المهام والأنشطة</h3>
+                <select
+                  value={taskViewFilter}
+                  onChange={(e) => setTaskViewFilter(e.target.value)}
+                  style={{ padding: '0.35rem 0.55rem', backgroundColor: '#f5efe3', color: '#765522', border: '1px solid #d9c5a4', borderRadius: '5px', fontSize: '0.75rem', fontWeight: 'bold' }}
+                >
+                  <option value="active">المهام الحالية</option>
+                  <option value="archived">الأرشيف</option>
+                  <option value="all">الكل</option>
+                </select>
+              </div>
               {can(userRole, PERMISSIONS.TASKS_MANAGE) &&               <button onClick={() => setShowTaskModal(true)} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>+ إضافة مهمة جديدة</button>}
             </div>
             <div style={{ backgroundColor: '#fffaf0', borderRadius: '6px', overflowX: 'auto', border: '1px solid #d9c5a4' }}>
@@ -1304,20 +1344,44 @@ export default function Dashboard() {
                     <th style={{ padding: '0.8rem' }}>تاريخ الاستحقاق</th>
                     <th style={{ padding: '0.8rem' }}>التفاصيل</th>
                     <th style={{ padding: '0.8rem' }}>الحالة</th>
+                    <th style={{ padding: '0.8rem' }}>الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tasks.map(task => (
+                  {tasks.filter((task) => (
+                    taskViewFilter === 'archived'
+                      ? task.status === 'Archived'
+                      : taskViewFilter === 'all'
+                        ? true
+                        : task.status !== 'Archived'
+                  )).map(task => (
                     <tr key={task.id} style={{ borderBottom: '1px solid #d9c5a4' }}>
                       <td style={{ padding: '0.8rem', fontWeight: 'bold', color: '#fff' }}>{task.title}</td>
                       <td style={{ padding: '0.8rem', color: '#34d399' }}>{task.leads?.name || 'عامة'}</td>
                       <td style={{ padding: '0.8rem', color: '#f87171' }}>{task.due_date ? new Date(task.due_date).toLocaleString('ar-EG') : 'غير محدد'}</td>
                       <td style={{ padding: '0.8rem', color: '#806f56' }}>{task.description || '-'}</td>
                       <td style={{ padding: '0.8rem' }}>
-                        {can(userRole, PERMISSIONS.TASKS_MANAGE) ? (                        <select value={task.status || 'Pending'} onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: task.status === 'Completed' ? '#34d399' : '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
-                          <option value="Pending">⏳ قيد التنفيذ</option>
-                          <option value="Completed">✅ مكتملة</option>
-                        </select>) : (<span style={{ color: '#806f56', fontSize: '0.8rem' }}>{task.status === 'Completed' ? '✅ مكتملة' : '⏳ قيد التنفيذ'}</span>)}
+                        {task.status === 'Archived' ? (
+                          <span style={{ color: '#a7352b', fontSize: '0.8rem', fontWeight: 'bold' }}>🗄️ مؤرشفة</span>
+                        ) : can(userRole, PERMISSIONS.TASKS_MANAGE) ? (
+                          <select value={task.status || 'Pending'} onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)} style={{ padding: '0.3rem', backgroundColor: '#f5efe3', color: task.status === 'Completed' ? '#34d399' : '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.8rem' }}>
+                            <option value="Pending">⏳ قيد التنفيذ</option>
+                            <option value="Completed">✅ مكتملة</option>
+                          </select>
+                        ) : (
+                          <span style={{ color: '#806f56', fontSize: '0.8rem' }}>{task.status === 'Completed' ? '✅ مكتملة' : '⏳ قيد التنفيذ'}</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.8rem', whiteSpace: 'nowrap' }}>
+                        {task.status === 'Archived' && can(userRole, PERMISSIONS.TASKS_MANAGE) && (
+                          <button type="button" onClick={() => handleRestoreTask(task)} style={{ padding: '0.3rem 0.55rem', backgroundColor: '#eefbf3', color: '#176b4d', border: '1px solid #9ad1b4', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>↩️ إلغاء الأرشفة</button>
+                        )}
+                        {task.status !== 'Archived' && can(userRole, PERMISSIONS.TASKS_MANAGE) && (
+                          <button type="button" onClick={() => handleArchiveTask(task)} style={{ padding: '0.3rem 0.55rem', backgroundColor: '#fff7f2', color: '#a7352b', border: '1px solid #d9a07a', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>🗄️ أرشفة</button>
+                        )}
+                        {userRole === 'admin' && (
+                          <button type="button" onClick={() => handlePermanentDeleteTask(task)} style={{ marginRight: '0.3rem', padding: '0.3rem 0.55rem', backgroundColor: '#fff1f2', color: '#991b1b', border: '1px solid #e5a3aa', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>حذف نهائي</button>
+                        )}
                       </td>
                     </tr>
                   ))}
