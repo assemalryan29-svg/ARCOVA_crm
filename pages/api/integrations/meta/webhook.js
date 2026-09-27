@@ -118,7 +118,7 @@ async function findLead(supabase, { externalSource, externalLeadId, phone }) {
   if (externalSource && externalLeadId) {
     const { data } = await supabase
       .from('leads')
-      .select('id,name,phone,email,assigned_to')
+      .select('id,name,phone,email,phone_normalized,assigned_to')
       .eq('external_source', externalSource)
       .eq('external_lead_id', externalLeadId)
       .maybeSingle();
