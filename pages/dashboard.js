@@ -178,7 +178,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-    const refreshTimer = setInterval(() => fetchData(), 5 * 60 * 1000);
+    // Keep the dashboard fresh even if realtime is temporarily unavailable.
+    const refreshTimer = setInterval(() => fetchData(), 60 * 1000);
     return () => clearInterval(refreshTimer);
   }, []);
 
@@ -342,6 +343,21 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  // External integrations (WhatsApp/Facebook) can create leads outside this browser session.
+  // Re-fetch through the normal RLS-scoped query so realtime never bypasses permissions.
+  useEffect(() => {
+    const channel = supabase
+      .channel('arcova-leads-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const fetchLeadLogs = async (leadId) => {
     const { data } = await supabase.from('lead_logs').select('*').eq('lead_id', leadId).order('created_at', { ascending: false });
