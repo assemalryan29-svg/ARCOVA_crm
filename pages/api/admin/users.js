@@ -146,8 +146,18 @@ export default async function handler(req, res) {
     }]);
 
     if (roleInsert.error) {
+      console.error('Create user role insert failed:', {
+        code: roleInsert.error.code,
+        message: roleInsert.error.message,
+        details: roleInsert.error.details,
+        hint: roleInsert.error.hint,
+      });
       await rollbackAuthUser();
-      return res.status(400).json({ error: 'Could not assign the user role.' });
+      return res.status(400).json({
+        error: roleInsert.error.code === '23505'
+          ? 'هذا الموظف موجود بالفعل أو البريد مستخدم في النظام.'
+          : 'تم رفض حفظ صلاحية الموظف. راجع سجل الخادم لمعرفة السبب.',
+      });
     }
 
     const profileInsert = await adminClient.from('profiles').upsert([{
@@ -162,8 +172,16 @@ export default async function handler(req, res) {
     }], { onConflict: 'id' });
 
     if (profileInsert.error) {
+      console.error('Create user profile insert failed:', {
+        code: profileInsert.error.code,
+        message: profileInsert.error.message,
+        details: profileInsert.error.details,
+        hint: profileInsert.error.hint,
+      });
       await rollbackAuthUser();
-      return res.status(400).json({ error: 'Could not create the employee profile.' });
+      return res.status(400).json({
+        error: 'تعذر حفظ ملف الموظف. لم يتم الاحتفاظ بالحساب الجزئي؛ راجع سجل الخادم لمعرفة السبب.',
+      });
     }
 
     await adminClient.from('audit_logs').insert([{
