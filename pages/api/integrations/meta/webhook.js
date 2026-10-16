@@ -35,7 +35,7 @@ function verifyMetaSignature(rawBody, signature) {
 }
 
 function normalizePhone(value) {
-  const digits = String(value || '').replace(/\\D/g, '');
+  const digits = String(value || '').replace(/\D/g, '');
   if (!digits) return '';
   // Egyptian mobile numbers are compared by their last 10 digits so
   // 010..., 10..., and 2010... can match the same CRM lead.
