@@ -131,6 +131,7 @@ export default function Dashboard() {
 
   const [newNote, setNewNote] = useState('');
   const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'sales' });
+  const [userCreateBusy, setUserCreateBusy] = useState(false);
   
   const [newLeadData, setNewLeadData] = useState({ 
     name: '', phone: '', email: '', lead_source: 'Manual', assigned_to: '',
@@ -742,6 +743,8 @@ export default function Dashboard() {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    if (userCreateBusy) return;
+    setUserCreateBusy(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -775,6 +778,8 @@ export default function Dashboard() {
       fetchData();
     } catch (err) {
       alert('خطأ اتصال: ' + err.message);
+    } finally {
+      setUserCreateBusy(false);
     }
   };
 
@@ -1527,7 +1532,7 @@ export default function Dashboard() {
           <div style={{ backgroundColor: '#fffaf0', padding: '1.5rem', borderRadius: '6px', width: '320px', border: '1px solid #b08a4a' }}>
             <h3 style={{ color: '#b08a4a', fontFamily: 'serif', marginTop: 0, fontSize: '1rem' }}>إنشاء مجلد جديد</h3>
             <form onSubmit={handleCreateFolder} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
-              <input type="text" placeholder="اسم المجلد (مثل: عملاء التجمع)" required value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="اسم المجلد (مثل: عملاء التجمع)" required value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#3f321f', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>إنشاء</button>
               <button type="button" onClick={() => setShowCreateFolderModal(false)} style={{ padding: '0.5rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
             </form>
@@ -1543,7 +1548,7 @@ export default function Dashboard() {
             <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.8rem' }}>
               <input type="text" placeholder="اسم الموظف" required value={newUser.full_name} onChange={(e) => setNewUser({...newUser, full_name: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '8px', fontSize: '0.85rem' }} />
               <input type="email" placeholder="البريد الإلكتروني" required value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
-              <input type="password" placeholder="كلمة المرور" required value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
+              <input type="password" placeholder="كلمة المرور (8 أحرف على الأقل)" required minLength={8} autoComplete="new-password" value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#fff', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }} />
               <select value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} style={{ padding: '0.5rem', backgroundColor: '#f5efe3', color: '#b08a4a', border: '1px solid #d9c5a4', borderRadius: '4px', fontSize: '0.85rem' }}>
                 <option value="sales">Sales (مبيعات)</option>
                 <option value="team_leader">Team Leader (قائد فريق)</option>
@@ -1553,7 +1558,7 @@ export default function Dashboard() {
                 <option value="ceo">CEO (الرئيس التنفيذي)</option>
                 <option value="admin">Admin (مدير النظام)</option>
               </select>
-              <button type="submit" style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>حفظ</button>
+              <button type="submit" disabled={userCreateBusy} style={{ padding: '0.6rem', backgroundColor: '#b08a4a', color: '#f5efe3', border: 'none', borderRadius: '4px', cursor: userCreateBusy ? 'wait' : 'pointer', opacity: userCreateBusy ? 0.7 : 1, fontWeight: 'bold', fontSize: '0.85rem' }}>{userCreateBusy ? 'جاري الحفظ...' : 'حفظ'}</button>
               <button type="button" onClick={() => setShowUserModal(false)} style={{ padding: '0.5rem', backgroundColor: '#d9c5a4', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem' }}>إلغاء</button>
             </form>
           </div>
